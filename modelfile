@@ -1,0 +1,9 @@
+FROM ./qwen-1.5-14b-chat.gguf
+
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>{{ end }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+<|im_start|>assistant
+"""
+PARAMETER stop <|im_start|>
+PARAMETER stop <|im_end|>
