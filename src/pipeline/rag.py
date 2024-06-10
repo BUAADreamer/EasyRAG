@@ -21,10 +21,10 @@ from custom.template import QA_TEMPLATE
 
 class QdrantRetriever(BaseRetriever):
     def __init__(
-        self,
-        vector_store: QdrantVectorStore,
-        embed_model: BaseEmbedding,
-        similarity_top_k: int = 2,
+            self,
+            vector_store: QdrantVectorStore,
+            embed_model: BaseEmbedding,
+            similarity_top_k: int = 2,
     ) -> None:
         self._vector_store = vector_store
         self._embed_model = embed_model
@@ -57,13 +57,13 @@ class QdrantRetriever(BaseRetriever):
 
 
 async def generation_with_knowledge_retrieval(
-    query_str: str,
-    retriever: BaseRetriever,
-    llm: LLM,
-    qa_template: str = QA_TEMPLATE,
-    reranker: BaseNodePostprocessor | None = None,
-    debug: bool = False,
-    progress=None,
+        query_str: str,
+        retriever: BaseRetriever,
+        llm: LLM,
+        qa_template: str = QA_TEMPLATE,
+        reranker: BaseNodePostprocessor = None,
+        debug: bool = False,
+        progress=None,
 ) -> CompletionResponse:
     query_bundle = QueryBundle(query_str=query_str)
     node_with_scores = await retriever.aretrieve(query_bundle)
@@ -82,5 +82,4 @@ async def generation_with_knowledge_retrieval(
     ret = await llm.acomplete(fmt_qa_prompt)
     if progress:
         progress.update(1)
-    return ret
-
+    return ret, node_with_scores

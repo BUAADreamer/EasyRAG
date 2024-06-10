@@ -11,7 +11,7 @@ def read_jsonl(path):
 
 
 def save_answers(
-    queries: Iterable, results: Iterable, path: str = "data/answers.jsonl"
+        queries: Iterable, results: Iterable, path: str = "data/answers.jsonl"
 ):
     answers = []
     for query, result in zip(queries, results):
@@ -26,3 +26,4 @@ def save_answers(
 
     # 保存答案到 data/answers.jsonl
     write_jsonl(path, answers)
+    return answers
