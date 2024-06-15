@@ -10,7 +10,7 @@ from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
 from tqdm.asyncio import tqdm
 
-from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_filters
+from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters
 from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import QdrantRetriever, generation_with_knowledge_retrieval
 from config import GLM_KEY
@@ -18,7 +18,7 @@ from config import GLM_KEY
 
 def get_test_data(split="val"):
     if split == 'test':
-        queries = read_jsonl("question.jsonl")[:5]
+        queries = read_jsonl("question.jsonl")
     else:
         with open("dataset/val.json") as f:
             queries = json.loads(f.read())
@@ -26,10 +26,12 @@ def get_test_data(split="val"):
 
 
 async def main(
-        split='val',
-        push=False,
-        save_inter=True,
-        note="",
+        split='val',  # 使用哪个集合
+        push=False,  # 是否直接提交这次test结果
+        save_inter=True,  # 是否保存检索结果等中间结果
+        note="",  # 中间结果保存路径的备注名字
+        reindex=False,  # 是否从头开始构建索引
+        re_only=False,  # 只检索，用于调试检索
 ):
     config = dotenv_values(".env")
 
@@ -49,7 +51,7 @@ async def main(
     Settings.embed_model = embedding
 
     # 初始化 数据ingestion pipeline 和 vector store
-    client, vector_store = await build_vector_store(config, reindex=False)
+    client, vector_store = await build_vector_store(config, reindex=reindex)
 
     collection_info = await client.get_collection(
         config["COLLECTION_NAME"] or "aiops24"
@@ -57,7 +59,7 @@ async def main(
     data_path = config.get("DATA_PATH", "data")
     if collection_info.points_count == 0:
         data = read_data(data_path)
-        pipeline = build_pipeline(llm, embedding, vector_store=vector_store)
+        pipeline = build_pipeline(llm, embedding, vector_store=vector_store, data_path=data_path)
         # 暂时停止实时索引
         await client.update_collection(
             collection_name=config["COLLECTION_NAME"] or "aiops24",
@@ -84,14 +86,15 @@ async def main(
     docs = []
     for query in tqdm(queries, total=len(queries)):
         if "document" in query:
-            filters = build_filters(
-                dir=os.path.join(data_path, query['document'])
+            dir = query['document']
+            filters = build_qdrant_filters(
+                dir=dir
             )
         else:
             filters = None
         retriever.filters = filters
         result, contexts = await generation_with_knowledge_retrieval(
-            query["query"], retriever, llm
+            query["query"], retriever, llm, re_only=re_only
         )
         docs.append(contexts)
         results.append(result)

@@ -36,9 +36,14 @@ class QdrantRetriever(BaseRetriever):
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         query_embedding = self._embed_model.get_query_embedding(query_bundle.query_str)
         vector_store_query = VectorStoreQuery(
-            query_embedding, similarity_top_k=self._similarity_top_k
+            query_embedding,
+            similarity_top_k=self._similarity_top_k,
+            # filters=self.filters, # qdrant 使用llama_index filter会有问题，原因未知
         )
-        query_result = await self._vector_store.aquery(vector_store_query, qdrant_filters=self.filters)
+        query_result = await self._vector_store.aquery(
+            vector_store_query,
+            qdrant_filters=self.filters,  # 需要查找qdrant相关用法
+        )
 
         node_with_scores = []
         for node, similarity in zip(query_result.nodes, query_result.similarities):
@@ -66,7 +71,8 @@ async def generation_with_knowledge_retrieval(
         reranker: BaseNodePostprocessor = None,
         debug: bool = False,
         progress=None,
-) -> CompletionResponse:
+        re_only: bool = False,
+):
     query_bundle = QueryBundle(query_str=query_str)
     node_with_scores = await retriever.aretrieve(query_bundle)
     if debug:
@@ -78,6 +84,8 @@ async def generation_with_knowledge_retrieval(
     context_str = "\n\n".join(
         [f"{node.metadata['document_title']}: {node.text}" for node in node_with_scores]
     )
+    if re_only:
+        return CompletionResponse(text=""), node_with_scores
     fmt_qa_prompt = PromptTemplate(qa_template).format(
         context_str=context_str, query_str=query_str
     )
