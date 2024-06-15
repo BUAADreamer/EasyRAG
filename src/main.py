@@ -41,8 +41,8 @@ async def main(
         is_chat_model=True,
     )
     embedding = HuggingFaceEmbedding(
-        model_name="BAAI/bge-base-zh-v1.5",
-        cache_folder=config.get("hfmodel_cache_folder"),
+        model_name=config.get("EMBEDDING_NAME"),
+        cache_folder=config.get("HFMODEL_CACHE_FOLDER"),
         embed_batch_size=128,
         # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
     )
@@ -54,7 +54,7 @@ async def main(
     collection_info = await client.get_collection(
         config["COLLECTION_NAME"] or "aiops24"
     )
-    data_path = config.get("data_path", "data")
+    data_path = config.get("DATA_PATH", "data")
     if collection_info.points_count == 0:
         data = read_data(data_path)
         pipeline = build_pipeline(llm, embedding, vector_store=vector_store)
@@ -71,6 +71,9 @@ async def main(
         )
         print(len(data))
 
+    # 加载检索器
+    retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=8)
+
     # 读入数据集
     queries = get_test_data(split)
 
@@ -86,7 +89,7 @@ async def main(
             )
         else:
             filters = None
-        retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=8, filters=filters)
+        retriever.filters = filters
         result, contexts = await generation_with_knowledge_retrieval(
             query["query"], retriever, llm
         )

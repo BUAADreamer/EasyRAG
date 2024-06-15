@@ -33,12 +33,12 @@ class QdrantRetriever(BaseRetriever):
         self.filters = filters
         super().__init__()
 
-    async def _aretrieve(self, query_bundle: QueryBundle, filters=None) -> List[NodeWithScore]:
+    async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         query_embedding = self._embed_model.get_query_embedding(query_bundle.query_str)
         vector_store_query = VectorStoreQuery(
-            query_embedding, similarity_top_k=self._similarity_top_k, filters=self.filters
+            query_embedding, similarity_top_k=self._similarity_top_k
         )
-        query_result = await self._vector_store.aquery(vector_store_query)
+        query_result = await self._vector_store.aquery(vector_store_query, qdrant_filters=self.filters)
 
         node_with_scores = []
         for node, similarity in zip(query_result.nodes, query_result.similarities):
