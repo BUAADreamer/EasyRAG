@@ -1,9 +1,11 @@
+import os
+
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.embeddings import BaseEmbedding
 from llama_index.core.extractors import SummaryExtractor
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.llms.llm import LLM
-from llama_index.core.vector_stores.types import BasePydanticVectorStore
+from llama_index.core.vector_stores.types import BasePydanticVectorStore, MetadataFilters, MetadataFilter, FilterOperator
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import Document, MetadataMode
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -26,15 +28,15 @@ def read_data(path: str = "data") -> list[Document]:
 
 
 def build_pipeline(
-    llm: LLM,
-    embed_model: BaseEmbedding,
-    template: str = None,
-    vector_store: BasePydanticVectorStore = None,
+        llm: LLM,
+        embed_model: BaseEmbedding,
+        template: str = None,
+        vector_store: BasePydanticVectorStore = None,
 ) -> IngestionPipeline:
     transformation = [
         SentenceSplitter(chunk_size=1024, chunk_overlap=50),
         CustomTitleExtractor(metadata_mode=MetadataMode.EMBED),
-        CustomFilePathExtractor(last_path_length=4, metadata_mode=MetadataMode.EMBED),
+        CustomFilePathExtractor(last_path_length=100000, metadata_mode=MetadataMode.EMBED),
         # SummaryExtractor(
         #     llm=llm,
         #     metadata_mode=MetadataMode.EMBED,
@@ -47,7 +49,7 @@ def build_pipeline(
 
 
 async def build_vector_store(
-    config: dict, reindex: bool = False
+        config: dict, reindex: bool = False
 ) -> tuple[AsyncQdrantClient, QdrantVectorStore]:
     client = AsyncQdrantClient(
         # url=config["QDRANT_URL"],
@@ -74,3 +76,12 @@ async def build_vector_store(
         parallel=4,
         batch_size=32,
     )
+
+
+def build_filters(dir):
+    filters = MetadataFilters(
+        filters=[
+            MetadataFilter(key="file_path", operator=FilterOperator.CONTAINS, value=dir),
+        ]
+    )
+    return filters

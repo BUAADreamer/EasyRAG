@@ -10,7 +10,7 @@ from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
 from tqdm.asyncio import tqdm
 
-from pipeline.ingestion import build_pipeline, build_vector_store, read_data
+from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_filters
 from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import QdrantRetriever, generation_with_knowledge_retrieval
 from config import GLM_KEY
@@ -18,7 +18,7 @@ from config import GLM_KEY
 
 def get_test_data(split="val"):
     if split == 'test':
-        queries = read_jsonl("question.jsonl")
+        queries = read_jsonl("question.jsonl")[:5]
     else:
         with open("dataset/val.json") as f:
             queries = json.loads(f.read())
@@ -29,6 +29,7 @@ async def main(
         split='val',
         push=False,
         save_inter=True,
+        note="",
 ):
     config = dotenv_values(".env")
 
@@ -40,9 +41,10 @@ async def main(
         is_chat_model=True,
     )
     embedding = HuggingFaceEmbedding(
-        model_name="BAAI/bge-small-zh-v1.5",
+        model_name="BAAI/bge-base-zh-v1.5",
         cache_folder=config.get("hfmodel_cache_folder"),
         embed_batch_size=128,
+        # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
     )
     Settings.embed_model = embedding
 
@@ -69,8 +71,7 @@ async def main(
         )
         print(len(data))
 
-    retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=3)
-
+    # 读入数据集
     queries = get_test_data(split)
 
     # 生成答案
@@ -79,6 +80,13 @@ async def main(
     results = []
     docs = []
     for query in tqdm(queries, total=len(queries)):
+        if "document" in query:
+            filters = build_filters(
+                dir=os.path.join(data_path, query['document'])
+            )
+        else:
+            filters = None
+        retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=8, filters=filters)
         result, contexts = await generation_with_knowledge_retrieval(
             query["query"], retriever, llm
         )
@@ -136,7 +144,7 @@ async def main(
                 inter_res['keywords'] = query['keywords']
                 inter_res['gt'] = query['answer']
             inter_res_list.append(inter_res)
-        with open(f"inter/{split}.json", 'w') as f:
+        with open(f"inter/{split}_{note}.json", 'w') as f:
             f.write(json.dumps(inter_res_list, ensure_ascii=False, indent=4))
 
 
