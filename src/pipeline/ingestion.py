@@ -8,12 +8,12 @@ from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.llms.llm import LLM
 from llama_index.core.vector_stores.types import BasePydanticVectorStore, MetadataFilters, MetadataFilter, FilterOperator, ExactMatchFilter
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.core.schema import Document, MetadataMode
+from llama_index.core.schema import Document, MetadataMode, TransformComponent
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.http.models import Filter, FieldCondition, MatchValue
-
+from llama_index.retrievers.bm25 import BM25Retriever
 from custom.template import SUMMARY_EXTRACT_TEMPLATE
 from custom.transformation import CustomFilePathExtractor, CustomTitleExtractor
 
@@ -45,6 +45,25 @@ class MyExtractor(BaseExtractor):
         return metadata_list
 
 
+def build_preprocess(
+        data_path=None
+) -> List[TransformComponent]:
+    transformation = [
+        SentenceSplitter(chunk_size=1024, chunk_overlap=50),
+        CustomTitleExtractor(metadata_mode=MetadataMode.EMBED),
+        CustomFilePathExtractor(last_path_length=100000, metadata_mode=MetadataMode.EMBED),
+        MyExtractor(data_path=data_path),
+    ]
+    return transformation
+
+
+def build_preprocess_pipeline(
+        data_path=None
+) -> IngestionPipeline:
+    transformation = build_preprocess(data_path)
+    return IngestionPipeline(transformations=transformation)
+
+
 def build_pipeline(
         llm: LLM,
         embed_model: BaseEmbedding,
@@ -52,19 +71,15 @@ def build_pipeline(
         vector_store: BasePydanticVectorStore = None,
         data_path=None
 ) -> IngestionPipeline:
-    transformation = [
-        SentenceSplitter(chunk_size=1024, chunk_overlap=50),
-        CustomTitleExtractor(metadata_mode=MetadataMode.EMBED),
-        CustomFilePathExtractor(last_path_length=100000, metadata_mode=MetadataMode.EMBED),
-        MyExtractor(data_path=data_path),
+    transformation = build_preprocess(data_path)
+    transformation.extend([
         # SummaryExtractor(
         #     llm=llm,
         #     metadata_mode=MetadataMode.EMBED,
         #     prompt_template=template or SUMMARY_EXTRACT_TEMPLATE,
         # ),
         embed_model,
-    ]
-
+    ])
     return IngestionPipeline(transformations=transformation, vector_store=vector_store)
 
 
@@ -86,7 +101,7 @@ async def build_vector_store(
         await client.create_collection(
             collection_name=config["COLLECTION_NAME"] or "aiops24",
             vectors_config=models.VectorParams(
-                size=config["VECTOR_SIZE"] or 1024, distance=models.Distance.DOT
+                size=config["VECTOR_SIZE"] or 1024, distance=models.Distance.COSINE
             ),
         )
     except Exception as e:

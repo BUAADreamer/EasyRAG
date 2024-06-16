@@ -1,6 +1,9 @@
 import asyncio
 import json
 import os
+
+from llama_index.retrievers.bm25 import BM25Retriever
+
 from submit import submit
 import fire
 from dotenv import dotenv_values
@@ -10,9 +13,10 @@ from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
 from tqdm.asyncio import tqdm
 
-from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters
+from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters, build_preprocess_pipeline
 from pipeline.qa import read_jsonl, save_answers
-from pipeline.rag import QdrantRetriever, generation_with_knowledge_retrieval
+from pipeline.rag import generation_with_knowledge_retrieval
+from pipeline.retrievers import QdrantRetriever, HybridRetriever
 from config import GLM_KEY
 
 
@@ -26,7 +30,7 @@ def get_test_data(split="val"):
 
 
 async def main(
-        split='val',  # 使用哪个集合
+        split='test',  # 使用哪个集合
         push=False,  # 是否直接提交这次test结果
         save_inter=True,  # 是否保存检索结果等中间结果
         note="",  # 中间结果保存路径的备注名字
@@ -54,33 +58,49 @@ async def main(
     client, vector_store = await build_vector_store(config, reindex=reindex)
 
     collection_info = await client.get_collection(
-        config["COLLECTION_NAME"] or "aiops24"
+        config["COLLECTION_NAME"]
     )
-    data_path = config.get("DATA_PATH", "data")
+    data_path = config.get("DATA_PATH")
+    data = read_data(data_path)
+    print(f"文档读入完成，一共有{len(data)}个文档")
     if collection_info.points_count == 0:
-        data = read_data(data_path)
         pipeline = build_pipeline(llm, embedding, vector_store=vector_store, data_path=data_path)
         # 暂时停止实时索引
         await client.update_collection(
-            collection_name=config["COLLECTION_NAME"] or "aiops24",
+            collection_name=config["COLLECTION_NAME"],
             optimizer_config=models.OptimizersConfigDiff(indexing_threshold=0),
         )
-        await pipeline.arun(documents=data, show_progress=True, num_workers=1)
+        nodes = await pipeline.arun(documents=data, show_progress=True, num_workers=1)
         # 恢复实时索引
         await client.update_collection(
-            collection_name=config["COLLECTION_NAME"] or "aiops24",
+            collection_name=config["COLLECTION_NAME"],
             optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
         )
-        print(len(data))
+        print(f"索引建立完成，一共有{len(nodes)}个节点")
+    else:
+        preprocess_pipeline = build_preprocess_pipeline(data_path)
+        nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
+        print(f"索引已建立，一共有{len(nodes)}个节点")
 
     # 加载检索器
-    retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=8)
+    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=8)
+    print("创建密集检索器成功")
+
+    sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, similarity_top_k=8)
+    print("创建稀疏检索器成功")
+
+    retriever = HybridRetriever(
+        dense_retriever=dense_retriever,
+        sparse_retriever=sparse_retriever,
+        retrieval_type=2,  # 1-dense 2-sparse 3-hybrid
+    )
+    print("创建混合检索器成功")
 
     # 读入数据集
     queries = get_test_data(split)
 
     # 生成答案
-    print("Start generating answers...")
+    print("开始生成答案...")
 
     results = []
     docs = []
@@ -92,7 +112,7 @@ async def main(
             )
         else:
             filters = None
-        retriever.filters = filters
+        dense_retriever.filters = filters
         result, contexts = await generation_with_knowledge_retrieval(
             query["query"], retriever, llm, re_only=re_only
         )
@@ -100,6 +120,7 @@ async def main(
         results.append(result)
 
     # 处理结果
+    print("处理生成内容...")
     os.makedirs("outputs", exist_ok=True)
     answers = save_answers(queries, results, f"outputs/submit_result_{split}.jsonl")
 
@@ -110,7 +131,6 @@ async def main(
         if push:
             judge_res = submit(answers)
             print(judge_res)
-
     elif split == 'val':
         all_keyword_acc = 0
         all_sim_acc = 0
@@ -132,6 +152,7 @@ async def main(
 
     # 保存中间结果
     if save_inter:
+        print("保存中间结果...")
         inter_res_list = []
         for query, answer, documents in tqdm(zip(queries, answers, docs)):
             contexts = [f"{doc.metadata['document_title']}: {doc.text}" for doc in documents]
