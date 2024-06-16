@@ -105,7 +105,7 @@ async def build_vector_store(
             ),
         )
     except Exception as e:
-        print("Collection already exists")
+        print("集合已存在")
     return client, QdrantVectorStore(
         aclient=client,
         collection_name=config["COLLECTION_NAME"] or "aiops24",

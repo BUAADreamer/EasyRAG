@@ -18,6 +18,7 @@ from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import generation_with_knowledge_retrieval
 from pipeline.retrievers import QdrantRetriever, HybridRetriever
 from config import GLM_KEY
+from llama_index.core.postprocessor import SentenceTransformerRerank
 
 
 def get_test_data(split="val"):
@@ -92,11 +93,25 @@ async def main(
     retriever = HybridRetriever(
         dense_retriever=dense_retriever,
         sparse_retriever=sparse_retriever,
-        retrieval_type=2,  # 1-dense 2-sparse 3-hybrid
+        retrieval_type=1,  # 1-dense 2-sparse 3-hybrid
     )
     print("创建混合检索器成功")
 
-    # 读入数据集
+    """
+    BGE重排器系列: https://huggingface.co/BAAI/bge-reranker-v2-minicpm-layerwise
+    BAAI/bge-reranker-base
+    BAAI/bge-reranker-large
+    BAAI/bge-reranker-v2-m3
+    BAAI/bge-reranker-v2-gemma
+    BAAI/bge-reranker-v2-minicpm-layerwise
+    """
+    reranker = SentenceTransformerRerank(
+        top_n=4,
+        model="BAAI/bge-reranker-v2-minicpm-layerwise",
+    )
+    print("创建重排器成功")
+
+    # 读入测试集
     queries = get_test_data(split)
 
     # 生成答案
@@ -114,7 +129,11 @@ async def main(
             filters = None
         dense_retriever.filters = filters
         result, contexts = await generation_with_knowledge_retrieval(
-            query["query"], retriever, llm, re_only=re_only
+            query_str=query["query"],
+            retriever=retriever,
+            llm=llm,
+            re_only=re_only,
+            reranker=reranker,  # 可选重排器
         )
         docs.append(contexts)
         results.append(result)
@@ -122,7 +141,9 @@ async def main(
     # 处理结果
     print("处理生成内容...")
     os.makedirs("outputs", exist_ok=True)
-    answers = save_answers(queries, results, f"outputs/submit_result_{split}.jsonl")
+    answer_file = f"outputs/submit_result_{split}_{note}.jsonl"
+    answers = save_answers(queries, results, answer_file)
+    print(f"保存结果至{answer_file}")
 
     # 做评测
     os.makedirs("inter", exist_ok=True)
@@ -171,8 +192,10 @@ async def main(
                 inter_res['keywords'] = query['keywords']
                 inter_res['gt'] = query['answer']
             inter_res_list.append(inter_res)
-        with open(f"inter/{split}_{note}.json", 'w') as f:
+        inter_file = f"inter/{split}_{note}.json"
+        with open(f"{inter_file}", 'w') as f:
             f.write(json.dumps(inter_res_list, ensure_ascii=False, indent=4))
+        print(f"保存中间结果至{inter_file}")
 
 
 if __name__ == "__main__":
