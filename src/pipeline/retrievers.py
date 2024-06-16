@@ -67,8 +67,17 @@ class HybridRetriever(BaseRetriever):
     ):
         self.dense_retriever = dense_retriever
         self.sparse_retriever = sparse_retriever
-        self.retrieval_type = retrieval_type
+        self.retrieval_type = retrieval_type  # 1:dense only 2:sparse only 3:hybrid
         super().__init__()
+
+    def fusion(self, sparse_nodes, dense_nodes):
+        all_nodes = []
+        node_ids = set()
+        for n in sparse_nodes + dense_nodes:
+            if n.node.node_id not in node_ids:
+                all_nodes.append(n)
+                node_ids.add(n.node.node_id)
+        return all_nodes
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         if self.retrieval_type != 1:
@@ -81,12 +90,7 @@ class HybridRetriever(BaseRetriever):
                 return dense_nodes
 
         # combine the two lists of nodes
-        all_nodes = []
-        node_ids = set()
-        for n in sparse_nodes + dense_nodes:
-            if n.node.node_id not in node_ids:
-                all_nodes.append(n)
-                node_ids.add(n.node.node_id)
+        all_nodes = self.fusion(sparse_nodes, dense_nodes)
         return all_nodes
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:

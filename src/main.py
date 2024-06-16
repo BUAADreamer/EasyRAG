@@ -18,7 +18,7 @@ from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import generation_with_knowledge_retrieval
 from pipeline.retrievers import QdrantRetriever, HybridRetriever
 from config import GLM_KEY
-from llama_index.core.postprocessor import SentenceTransformerRerank
+from pipeline.rerankers import SentenceTransformerRerank
 
 
 def get_test_data(split="val"):
@@ -83,6 +83,22 @@ async def main(
         nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
         print(f"索引已建立，一共有{len(nodes)}个节点")
 
+    """
+    BGE重排器系列: https://huggingface.co/BAAI/bge-reranker-v2-minicpm-layerwise
+    普通重排器:
+    BAAI/bge-reranker-base
+    BAAI/bge-reranker-large
+    BAAI/bge-reranker-v2-m3
+    LLM重排器:需要专门撰写代码，先不用这两个
+    BAAI/bge-reranker-v2-gemma 
+    BAAI/bge-reranker-v2-minicpm-layerwise
+    """
+    reranker = SentenceTransformerRerank(
+        top_n=4,
+        model="BAAI/bge-reranker-v2-m3",
+    )
+    print("创建重排器成功")
+
     # 加载检索器
     dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=8)
     print("创建密集检索器成功")
@@ -96,20 +112,6 @@ async def main(
         retrieval_type=1,  # 1-dense 2-sparse 3-hybrid
     )
     print("创建混合检索器成功")
-
-    """
-    BGE重排器系列: https://huggingface.co/BAAI/bge-reranker-v2-minicpm-layerwise
-    BAAI/bge-reranker-base
-    BAAI/bge-reranker-large
-    BAAI/bge-reranker-v2-m3
-    BAAI/bge-reranker-v2-gemma
-    BAAI/bge-reranker-v2-minicpm-layerwise
-    """
-    reranker = SentenceTransformerRerank(
-        top_n=4,
-        model="BAAI/bge-reranker-v2-minicpm-layerwise",
-    )
-    print("创建重排器成功")
 
     # 读入测试集
     queries = get_test_data(split)
