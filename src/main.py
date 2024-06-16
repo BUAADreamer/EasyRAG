@@ -1,9 +1,6 @@
 import asyncio
 import json
 import os
-
-from llama_index.retrievers.bm25 import BM25Retriever
-
 from submit import submit
 import fire
 from dotenv import dotenv_values
@@ -12,11 +9,10 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
 from tqdm.asyncio import tqdm
-
 from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters, build_preprocess_pipeline
 from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import generation_with_knowledge_retrieval
-from pipeline.retrievers import QdrantRetriever, HybridRetriever
+from pipeline.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
 from config import GLM_KEY
 from pipeline.rerankers import SentenceTransformerRerank
 
@@ -37,6 +33,8 @@ async def main(
         note="",  # 中间结果保存路径的备注名字
         reindex=False,  # 是否从头开始构建索引
         re_only=False,  # 只检索，用于调试检索
+        retrieval_type=1,  # 粗排类型
+        use_reranker=True,  # 是否使用重排
 ):
     config = dotenv_values(".env")
 
@@ -78,7 +76,7 @@ async def main(
             optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
         )
         print(f"索引建立完成，一共有{len(nodes)}个节点")
-    else:
+    elif retrieval_type != 1:
         preprocess_pipeline = build_preprocess_pipeline(data_path)
         nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
         print(f"索引已建立，一共有{len(nodes)}个节点")
@@ -93,25 +91,32 @@ async def main(
     BAAI/bge-reranker-v2-gemma 
     BAAI/bge-reranker-v2-minicpm-layerwise
     """
-    reranker = SentenceTransformerRerank(
-        top_n=4,
-        model="BAAI/bge-reranker-v2-m3",
-    )
-    print("创建重排器成功")
+    reranker = None
+    if use_reranker:
+        reranker = SentenceTransformerRerank(
+            top_n=8,
+            model="BAAI/bge-reranker-v2-m3",
+        )
+        print("创建重排器成功")
 
     # 加载检索器
-    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=8)
+    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=64)
     print("创建密集检索器成功")
 
-    sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, similarity_top_k=8)
-    print("创建稀疏检索器成功")
+    sparse_retriever = None
+    if retrieval_type != 1:
+        sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, similarity_top_k=8)
+        print("创建稀疏检索器成功")
 
-    retriever = HybridRetriever(
-        dense_retriever=dense_retriever,
-        sparse_retriever=sparse_retriever,
-        retrieval_type=1,  # 1-dense 2-sparse 3-hybrid
-    )
-    print("创建混合检索器成功")
+    if retrieval_type != 1:
+        retriever = HybridRetriever(
+            dense_retriever=dense_retriever,
+            sparse_retriever=sparse_retriever,
+            retrieval_type=retrieval_type,  # 1-dense 2-sparse 3-hybrid
+        )
+        print("创建混合检索器成功")
+    else:
+        retriever = dense_retriever
 
     # 读入测试集
     queries = get_test_data(split)
@@ -129,13 +134,16 @@ async def main(
             )
         else:
             filters = None
-        dense_retriever.filters = filters
+        retriever.filters = filters
+        retriever.filter_dict = {
+            "dir": dir
+        }
         result, contexts = await generation_with_knowledge_retrieval(
             query_str=query["query"],
             retriever=retriever,
             llm=llm,
             re_only=re_only,
-            reranker=reranker,  # 可选重排器
+            reranker=reranker,
         )
         docs.append(contexts)
         results.append(result)

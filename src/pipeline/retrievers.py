@@ -1,12 +1,20 @@
-from typing import List
+import logging
+from typing import List, Optional, Callable, cast
 
-from llama_index.core import QueryBundle
+from llama_index.core import QueryBundle, VectorStoreIndex
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.base.embeddings.base import BaseEmbedding
-from llama_index.core.schema import NodeWithScore
+from llama_index.core.callbacks import CallbackManager
+from llama_index.core.constants import DEFAULT_SIMILARITY_TOP_K
+from llama_index.core.indices.keyword_table.utils import simple_extract_keywords
+from llama_index.core.schema import NodeWithScore, BaseNode, IndexNode
+from llama_index.core.storage.docstore import BaseDocumentStore
 from llama_index.core.vector_stores import VectorStoreQuery
-from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.vector_stores.qdrant import QdrantVectorStore
+from nltk import PorterStemmer
+from rank_bm25 import BM25Okapi
+
+logger = logging.getLogger(__name__)
 
 
 class QdrantRetriever(BaseRetriever):
@@ -58,16 +66,109 @@ class QdrantRetriever(BaseRetriever):
         return node_with_scores
 
 
+def tokenize_remove_stopwords(text: str) -> List[str]:
+    # lowercase and stem words
+    text = text.lower()
+    stemmer = PorterStemmer()
+    words = list(simple_extract_keywords(text))
+    return [stemmer.stem(word) for word in words]
+
+
+class BM25Retriever(BaseRetriever):
+    def __init__(
+            self,
+            nodes: List[BaseNode],
+            tokenizer: Optional[Callable[[str], List[str]]],
+            similarity_top_k: int = DEFAULT_SIMILARITY_TOP_K,
+            callback_manager: Optional[CallbackManager] = None,
+            objects: Optional[List[IndexNode]] = None,
+            object_map: Optional[dict] = None,
+            verbose: bool = False,
+    ) -> None:
+        self._nodes = nodes
+        self._tokenizer = tokenizer or tokenize_remove_stopwords
+        self._similarity_top_k = similarity_top_k
+        self._corpus = [self._tokenizer(node.get_content()) for node in self._nodes]
+        self.bm25 = BM25Okapi(self._corpus)
+        self.filter_dict = None
+        super().__init__(
+            callback_manager=callback_manager,
+            object_map=object_map,
+            objects=objects,
+            verbose=verbose,
+        )
+
+    @classmethod
+    def from_defaults(
+            cls,
+            index: Optional[VectorStoreIndex] = None,
+            nodes: Optional[List[BaseNode]] = None,
+            docstore: Optional[BaseDocumentStore] = None,
+            tokenizer: Optional[Callable[[str], List[str]]] = None,
+            similarity_top_k: int = DEFAULT_SIMILARITY_TOP_K,
+            verbose: bool = False,
+    ) -> "BM25Retriever":
+        # ensure only one of index, nodes, or docstore is passed
+        if sum(bool(val) for val in [index, nodes, docstore]) != 1:
+            raise ValueError("Please pass exactly one of index, nodes, or docstore.")
+
+        if index is not None:
+            docstore = index.docstore
+
+        if docstore is not None:
+            nodes = cast(List[BaseNode], list(docstore.docs.values()))
+
+        assert (
+                nodes is not None
+        ), "Please pass exactly one of index, nodes, or docstore."
+
+        tokenizer = tokenizer or tokenize_remove_stopwords
+        return cls(
+            nodes=nodes,
+            tokenizer=tokenizer,
+            similarity_top_k=similarity_top_k,
+            verbose=verbose,
+        )
+
+    def filter(self, scores):
+        top_n = scores.argsort()[::-1]
+        nodes: List[NodeWithScore] = []
+        for ix, score in zip(top_n, scores):
+            flag = True
+            if self.filter_dict is not None:
+                for key, value in self.filter_dict.items():
+                    if self._nodes[ix].metadata[key] != value:
+                        flag = False
+                        break
+            if flag:
+                nodes.append(NodeWithScore(node=self._nodes[ix], score=float(score)))
+            if len(nodes) == self._similarity_top_k:
+                break
+        return nodes
+
+    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+        if query_bundle.custom_embedding_strs or query_bundle.embedding:
+            logger.warning("BM25Retriever does not support embeddings, skipping...")
+
+        query = query_bundle.query_str
+        tokenized_query = self._tokenizer(query)
+        scores = self.bm25.get_scores(tokenized_query)
+        nodes = self.filter(scores)
+        return nodes
+
+
 class HybridRetriever(BaseRetriever):
     def __init__(
             self,
             dense_retriever: QdrantRetriever,
             sparse_retriever: BM25Retriever,
-            retrieval_type=3
+            retrieval_type=1
     ):
         self.dense_retriever = dense_retriever
         self.sparse_retriever = sparse_retriever
         self.retrieval_type = retrieval_type  # 1:dense only 2:sparse only 3:hybrid
+        self.filters = None
+        self.filter_dict = None
         super().__init__()
 
     def fusion(self, sparse_nodes, dense_nodes):
@@ -81,10 +182,12 @@ class HybridRetriever(BaseRetriever):
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         if self.retrieval_type != 1:
+            self.sparse_retriever.filter_dict = self.filter_dict
             sparse_nodes = await self.sparse_retriever.aretrieve(query_bundle)
             if self.retrieval_type == 2:
                 return sparse_nodes
         if self.retrieval_type != 2:
+            self.dense_retriever.filters = self.filters
             dense_nodes = await self.dense_retriever.aretrieve(query_bundle)
             if self.retrieval_type == 1:
                 return dense_nodes
