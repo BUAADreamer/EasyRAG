@@ -14,7 +14,7 @@ from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import generation_with_knowledge_retrieval
 from pipeline.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
 from config import GLM_KEY
-from pipeline.rerankers import SentenceTransformerRerank
+from pipeline.rerankers import SentenceTransformerRerank, LLMRerank
 
 
 def get_test_data(split="val"):
@@ -34,7 +34,7 @@ async def main(
         reindex=False,  # 是否从头开始构建索引
         re_only=False,  # 只检索，用于调试检索
         retrieval_type=1,  # 粗排类型
-        use_reranker=True,  # 是否使用重排
+        use_reranker=1,  # 是否使用重排
 ):
     config = dotenv_values(".env")
 
@@ -81,17 +81,9 @@ async def main(
         nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
         print(f"索引已建立，一共有{len(nodes)}个节点")
 
-    reranker = None
-    if use_reranker:
-        reranker = SentenceTransformerRerank(
-            top_n=8,
-            model="BAAI/bge-reranker-v2-m3",
-        )
-        print("创建重排器成功")
-
     # 加载检索器
-    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=128)
-    print("创建密集检索器成功")
+    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=192)
+    print(f"创建{config['EMBEDDING_NAME']}密集检索器成功")
 
     sparse_retriever = None
     if retrieval_type != 1:
@@ -107,6 +99,20 @@ async def main(
         print("创建混合检索器成功")
     else:
         retriever = dense_retriever
+
+    reranker = None
+    if use_reranker == 1:
+        reranker = SentenceTransformerRerank(
+            top_n=8,
+            model=config["RERANKER_NAME"],
+        )
+        print(f"创建{config['RERANKER_NAME']}重排器成功")
+    elif use_reranker == 2:
+        reranker = LLMRerank(
+            top_n=8,
+            model=config["RERANKER_NAME"],
+        )
+        print(f"创建{config['RERANKER_NAME']}LLM重排器成功")
 
     # 读入测试集
     queries = get_test_data(split)

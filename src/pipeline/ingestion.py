@@ -93,13 +93,13 @@ async def build_vector_store(
     )
     if reindex:
         try:
-            await client.delete_collection(config["COLLECTION_NAME"] or "aiops24")
+            await client.delete_collection(config["COLLECTION_NAME"])
         except UnexpectedResponse as e:
             print(f"Collection not found: {e}")
 
     try:
         await client.create_collection(
-            collection_name=config["COLLECTION_NAME"] or "aiops24",
+            collection_name=config["COLLECTION_NAME"],
             vectors_config=models.VectorParams(
                 size=config["VECTOR_SIZE"] or 1024, distance=models.Distance.COSINE
             ),
@@ -108,7 +108,7 @@ async def build_vector_store(
         print("集合已存在")
     return client, QdrantVectorStore(
         aclient=client,
-        collection_name=config["COLLECTION_NAME"] or "aiops24",
+        collection_name=config["COLLECTION_NAME"],
         parallel=4,
         batch_size=32,
     )
