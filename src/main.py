@@ -17,6 +17,11 @@ from config import GLM_KEY
 from pipeline.rerankers import SentenceTransformerRerank, LLMRerank
 
 
+def load_stopwords(path):
+    with open(path, 'r', encoding='utf-8') as file:
+        stopwords = set([line.strip() for line in file])
+    return stopwords
+
 def get_test_data(split="val"):
     if split == 'test':
         queries = read_jsonl("question.jsonl")
@@ -87,7 +92,11 @@ async def main(
 
     sparse_retriever = None
     if retrieval_type != 1:
-        sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, similarity_top_k=8)
+        stp_words = load_stopwords("./data/hit_stopwords.txt")
+        import jieba
+        tk = jieba.Tokenizer()
+        sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, tokenizer=tk, 
+                                                       similarity_top_k=8, stopwords=stp_words)
         print("创建稀疏检索器成功")
 
     if retrieval_type != 1:
