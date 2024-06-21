@@ -39,7 +39,7 @@ async def main(
         reindex=False,  # 是否从头开始构建索引
         re_only=False,  # 只检索，用于调试检索
         retrieval_type=1,  # 粗排类型
-        use_reranker=1,  # 是否使用重排
+        use_reranker=2,  # 是否使用重排
 ):
     config = dotenv_values(".env")
 
