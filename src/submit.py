@@ -109,7 +109,7 @@ if __name__ == "__main__":
             judge_time = status.get('judge_time')
 
             if not judge_time:
-                print("Submission %s is still in queue." % submission_id)
+                print("Submission %s is still in queue" % submission_id)
             else:
                 print("Submission %s score: %s" % (submission_id, score))
             exit(0)
@@ -127,9 +127,9 @@ if __name__ == "__main__":
     return_data = submit(data, judge_server=args.server, contest=args.contest, ticket=args.ticket)
     if return_data:
         submission_id, remaining_attempts = return_data
-        print("Success! Your submission ID is %s." % submission_id)
+        print("Success! Your submission ID is %s" % submission_id)
         if remaining_attempts >= 0:
-            print("You have %d remaining evaluation attempt(s)." % remaining_attempts)
+            print("You have %d remaining evaluation attempt(s)" % remaining_attempts)
         exit(0)
     else:
         exit(1)

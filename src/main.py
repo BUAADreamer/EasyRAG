@@ -82,7 +82,7 @@ async def main(
         print(f"索引已建立，一共有{len(nodes)}个节点")
 
     # 加载检索器
-    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=192)
+    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=288)
     print(f"创建{config['EMBEDDING_NAME']}密集检索器成功")
 
     sparse_retriever = None
@@ -149,7 +149,7 @@ async def main(
     os.makedirs("outputs", exist_ok=True)
     answer_file = f"outputs/submit_result_{split}_{note}.jsonl"
     answers = save_answers(queries, results, answer_file)
-    print(f"保存结果至{answer_file}")
+    print(f"保存结果至 {answer_file}")
 
     # 做评测
     os.makedirs("inter", exist_ok=True)
@@ -201,7 +201,7 @@ async def main(
         inter_file = f"inter/{split}_{note}.json"
         with open(f"{inter_file}", 'w') as f:
             f.write(json.dumps(inter_res_list, ensure_ascii=False, indent=4))
-        print(f"保存中间结果至{inter_file}")
+        print(f"保存中间结果至 {inter_file}")
 
 
 if __name__ == "__main__":

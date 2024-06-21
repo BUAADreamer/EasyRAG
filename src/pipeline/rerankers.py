@@ -205,42 +205,48 @@ class LLMRerank(BaseNodePostprocessor):
             raise ValueError("Missing query bundle in extra info.")
         if len(nodes) == 0:
             return []
+        bsz = 256
+        N = len(nodes)
 
-        query_and_nodes = [
-            (
-                query_bundle.query_str,
-                node.node.get_content(metadata_mode=MetadataMode.EMBED),
-            )
-            for node in nodes
-        ]
+        for i in range(0, N, bsz):
+            begin_idx, end_idx = i, min(i + bsz, N)
+            cur_nodes = nodes[begin_idx:end_idx]
+            query_and_nodes = [
+                (
+                    query_bundle.query_str,
+                    node.node.get_content(metadata_mode=MetadataMode.EMBED),
+                )
+                for node in cur_nodes
+            ]
 
-        with self.callback_manager.event(
-                CBEventType.RERANKING,
-                payload={
-                    EventPayload.NODES: nodes,
-                    EventPayload.MODEL_NAME: self.model,
-                    EventPayload.QUERY_STR: query_bundle.query_str,
-                    EventPayload.TOP_K: self.top_n,
-                },
-        ) as event:
-            inputs = self.get_inputs(query_and_nodes, self._tokenizer).to(self._model.device)
-            with torch.no_grad():
-                if self._layer >= 0:
-                    all_scores = self._model(**inputs, return_dict=True, cutoff_layers=[self._layer])
-                    scores = [scores[:, -1].view(-1, ).float() for scores in all_scores[0]][0]
-                else:
-                    scores = self._model(**inputs, return_dict=True).logits[:, -1, self._yes_loc].view(-1, ).float()
-            assert len(scores) == len(nodes)
+            with self.callback_manager.event(
+                    CBEventType.RERANKING,
+                    payload={
+                        EventPayload.NODES: cur_nodes,
+                        EventPayload.MODEL_NAME: self.model,
+                        EventPayload.QUERY_STR: query_bundle.query_str,
+                        EventPayload.TOP_K: self.top_n,
+                    },
+            ) as event:
+                inputs = self.get_inputs(query_and_nodes, self._tokenizer).to(self._model.device)
+                with torch.no_grad():
+                    if self._layer >= 0:
+                        all_scores = self._model(**inputs, return_dict=True, cutoff_layers=[self._layer])
+                        scores = [scores[:, -1].view(-1, ).float() for scores in all_scores[0]][0]
+                    else:
+                        scores = self._model(**inputs, return_dict=True).logits[:, -1, self._yes_loc].view(-1, ).float()
+                assert len(scores) == len(cur_nodes)
 
-            for node, score in zip(nodes, scores):
-                if self.keep_retrieval_score:
-                    # keep the retrieval score in metadata
-                    node.node.metadata["retrieval_score"] = node.score
-                node.score = score
+                for node, score in zip(cur_nodes, scores):
+                    if self.keep_retrieval_score:
+                        # keep the retrieval score in metadata
+                        node.node.metadata["retrieval_score"] = node.score
+                    node.score = score
+            nodes[begin_idx:end_idx] = cur_nodes
 
-            new_nodes = sorted(nodes, key=lambda x: -x.score if x.score else 0)[
-                        : self.top_n
-                        ]
-            event.on_end(payload={EventPayload.NODES: new_nodes})
+        new_nodes = sorted(nodes, key=lambda x: -x.score if x.score else 0)[
+                    : self.top_n
+                    ]
+        event.on_end(payload={EventPayload.NODES: new_nodes})
 
         return new_nodes
