@@ -13,6 +13,7 @@ from llama_index.core.vector_stores import VectorStoreQuery
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from nltk import PorterStemmer
 from rank_bm25 import BM25Okapi
+import ipdb
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +67,14 @@ class QdrantRetriever(BaseRetriever):
         return node_with_scores
 
 
-def tokenize_remove_stopwords(text: str) -> List[str]:
-    # lowercase and stem words
-    text = text.lower()
-    stemmer = PorterStemmer()
-    words = list(simple_extract_keywords(text))
-    return [stemmer.stem(word) for word in words]
 
+def tokenize_and_remove_stopwords(tokenizer, text, stopwords):
+    words = tokenizer.cut(text)
+    filtered_words = [word for word in words 
+                      if word not in stopwords and word != ' ']
+    return filtered_words
 
+# using jieba to split sentence and remove meaningless words
 class BM25Retriever(BaseRetriever):
     def __init__(
             self,
@@ -84,13 +85,18 @@ class BM25Retriever(BaseRetriever):
             objects: Optional[List[IndexNode]] = None,
             object_map: Optional[dict] = None,
             verbose: bool = False,
+            stopwords: List[str] = [""]
     ) -> None:
         self._nodes = nodes
-        self._tokenizer = tokenizer or tokenize_remove_stopwords
+        self._tokenizer = tokenizer 
         self._similarity_top_k = similarity_top_k
-        self._corpus = [self._tokenizer(node.get_content()) for node in self._nodes]
+        self._corpus = [tokenize_and_remove_stopwords(
+            self._tokenizer, node.get_content(), stopwords=stopwords) 
+                        for node in self._nodes]
+        # self._corpus = [self._tokenizer(node.get_content()) for node in self._nodes]
         self.bm25 = BM25Okapi(self._corpus)
         self.filter_dict = None
+        self.stopwords = stopwords
         super().__init__(
             callback_manager=callback_manager,
             object_map=object_map,
@@ -107,6 +113,7 @@ class BM25Retriever(BaseRetriever):
             tokenizer: Optional[Callable[[str], List[str]]] = None,
             similarity_top_k: int = DEFAULT_SIMILARITY_TOP_K,
             verbose: bool = False,
+            stopwords: List[str] = [""]
     ) -> "BM25Retriever":
         # ensure only one of index, nodes, or docstore is passed
         if sum(bool(val) for val in [index, nodes, docstore]) != 1:
@@ -122,14 +129,15 @@ class BM25Retriever(BaseRetriever):
                 nodes is not None
         ), "Please pass exactly one of index, nodes, or docstore."
 
-        tokenizer = tokenizer or tokenize_remove_stopwords
+        tokenizer = tokenizer
         return cls(
             nodes=nodes,
             tokenizer=tokenizer,
             similarity_top_k=similarity_top_k,
             verbose=verbose,
+            stopwords=stopwords
         )
-
+    
     def filter(self, scores):
         top_n = scores.argsort()[::-1]
         nodes: List[NodeWithScore] = []
@@ -151,9 +159,11 @@ class BM25Retriever(BaseRetriever):
             logger.warning("BM25Retriever does not support embeddings, skipping...")
 
         query = query_bundle.query_str
-        tokenized_query = self._tokenizer(query)
+        tokenized_query = tokenize_and_remove_stopwords(self._tokenizer, query, 
+                                                        stopwords=self.stopwords)
         scores = self.bm25.get_scores(tokenized_query)
         nodes = self.filter(scores)
+        
         return nodes
 
 
@@ -173,12 +183,36 @@ class HybridRetriever(BaseRetriever):
 
     def fusion(self, sparse_nodes, dense_nodes):
         all_nodes = []
-        node_ids = set()
+
+        node_ids = set()        
         for n in sparse_nodes + dense_nodes:
             if n.node.node_id not in node_ids:
                 all_nodes.append(n)
                 node_ids.add(n.node.node_id)
         return all_nodes
+
+    #Reciprocal rank fusion
+
+    #TODO fix it two hybridR
+    def reciprocal_rank_fusion(*list_of_list_ranks_system, K=60):
+        from collections import defaultdict
+        """"
+        Nodes:[1.node:  2.score:]
+        K: default setting => 60
+        Returns:
+        Tuple of list of sorted documents by score and sorted documents
+        """
+        # Dictionary to store RRF mapping
+        rrf_map = defaultdict(float)
+
+        # Calculate RRF score for each result in each list
+        for rank_list in list_of_list_ranks_system:
+            for rank, item in enumerate(rank_list, 1):
+                rrf_map[item] += 1 / (rank + K)
+        # Sort items based on their RRF scores in descending order
+        sorted_items = sorted(rrf_map.items(), key=lambda x: x[1], reverse=True)
+        # Return tuple of list of sorted documents by score and sorted documents
+        return sorted_items, [item for item, score in sorted_items]
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         if self.retrieval_type != 1:
