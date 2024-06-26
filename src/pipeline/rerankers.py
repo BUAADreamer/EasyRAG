@@ -109,10 +109,14 @@ class LLMRerank(BaseNodePostprocessor):
         default=False,
         description="Whether to keep the retrieval score in metadata.",
     )
+    embed_bs: int = Field(
+        default=64,
+    )
     _model: Any = PrivateAttr()
     _tokenizer: Any = PrivateAttr()
     _yes_loc: Any = PrivateAttr()
     _layer: int = PrivateAttr()
+    _embed_bs: int = PrivateAttr()
 
     def __init__(
             self,
@@ -120,6 +124,7 @@ class LLMRerank(BaseNodePostprocessor):
             model: str = "BAAI/bge-reranker-v2-minicpm-layerwise",
             device: Optional[str] = None,
             keep_retrieval_score: Optional[bool] = False,
+            embed_bs: int = 64
     ):
         device = infer_torch_device() if device is None else device
 
@@ -142,6 +147,7 @@ class LLMRerank(BaseNodePostprocessor):
             ).to(device)
             self._model.eval()
             self._layer = -1
+        self._embed_bs = embed_bs
         super().__init__(
             top_n=top_n,
             model=model,
@@ -205,7 +211,7 @@ class LLMRerank(BaseNodePostprocessor):
             raise ValueError("Missing query bundle in extra info.")
         if len(nodes) == 0:
             return []
-        bsz = 256
+        bsz = self._embed_bs
         N = len(nodes)
 
         for i in range(0, N, bsz):

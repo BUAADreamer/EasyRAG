@@ -46,10 +46,12 @@ class MyExtractor(BaseExtractor):
 
 
 def build_preprocess(
-        data_path=None
+        data_path=None,
+        chunk_size=1024,
+        chunk_overlap=50,
 ) -> List[TransformComponent]:
     transformation = [
-        SentenceSplitter(chunk_size=1024, chunk_overlap=50),
+        SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap),
         CustomTitleExtractor(metadata_mode=MetadataMode.EMBED),
         CustomFilePathExtractor(last_path_length=100000, metadata_mode=MetadataMode.EMBED),
         MyExtractor(data_path=data_path),
@@ -58,9 +60,15 @@ def build_preprocess(
 
 
 def build_preprocess_pipeline(
-        data_path=None
+        data_path=None,
+        chunk_size=1024,
+        chunk_overlap=50,
 ) -> IngestionPipeline:
-    transformation = build_preprocess(data_path)
+    transformation = build_preprocess(
+        data_path,
+        chunk_size,
+        chunk_overlap,
+    )
     return IngestionPipeline(transformations=transformation)
 
 
@@ -69,9 +77,15 @@ def build_pipeline(
         embed_model: BaseEmbedding,
         template: str = None,
         vector_store: BasePydanticVectorStore = None,
-        data_path=None
+        data_path=None,
+        chunk_size=1024,
+        chunk_overlap=50,
 ) -> IngestionPipeline:
-    transformation = build_preprocess(data_path)
+    transformation = build_preprocess(
+        data_path,
+        chunk_size,
+        chunk_overlap,
+    )
     transformation.extend([
         # SummaryExtractor(
         #     llm=llm,

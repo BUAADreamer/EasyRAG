@@ -67,12 +67,12 @@ class QdrantRetriever(BaseRetriever):
         return node_with_scores
 
 
-
 def tokenize_and_remove_stopwords(tokenizer, text, stopwords):
     words = tokenizer.cut(text)
-    filtered_words = [word for word in words 
+    filtered_words = [word for word in words
                       if word not in stopwords and word != ' ']
     return filtered_words
+
 
 # using jieba to split sentence and remove meaningless words
 class BM25Retriever(BaseRetriever):
@@ -88,11 +88,11 @@ class BM25Retriever(BaseRetriever):
             stopwords: List[str] = [""]
     ) -> None:
         self._nodes = nodes
-        self._tokenizer = tokenizer 
+        self._tokenizer = tokenizer
         self._similarity_top_k = similarity_top_k
         self._corpus = [tokenize_and_remove_stopwords(
-            self._tokenizer, node.get_content(), stopwords=stopwords) 
-                        for node in self._nodes]
+            self._tokenizer, node.get_content(), stopwords=stopwords)
+            for node in self._nodes]
         # self._corpus = [self._tokenizer(node.get_content()) for node in self._nodes]
         self.bm25 = BM25Okapi(self._corpus)
         self.filter_dict = None
@@ -137,11 +137,13 @@ class BM25Retriever(BaseRetriever):
             verbose=verbose,
             stopwords=stopwords
         )
-    
+
     def filter(self, scores):
         top_n = scores.argsort()[::-1]
         nodes: List[NodeWithScore] = []
-        for ix, score in zip(top_n, scores):
+        for ix in top_n:
+            if scores[ix] <= 0:
+                break
             flag = True
             if self.filter_dict is not None:
                 for key, value in self.filter_dict.items():
@@ -149,7 +151,7 @@ class BM25Retriever(BaseRetriever):
                         flag = False
                         break
             if flag:
-                nodes.append(NodeWithScore(node=self._nodes[ix], score=float(score)))
+                nodes.append(NodeWithScore(node=self._nodes[ix], score=float(scores[ix])))
             if len(nodes) == self._similarity_top_k:
                 break
         return nodes
@@ -159,11 +161,11 @@ class BM25Retriever(BaseRetriever):
             logger.warning("BM25Retriever does not support embeddings, skipping...")
 
         query = query_bundle.query_str
-        tokenized_query = tokenize_and_remove_stopwords(self._tokenizer, query, 
+        tokenized_query = tokenize_and_remove_stopwords(self._tokenizer, query,
                                                         stopwords=self.stopwords)
         scores = self.bm25.get_scores(tokenized_query)
         nodes = self.filter(scores)
-        
+
         return nodes
 
 
@@ -184,16 +186,16 @@ class HybridRetriever(BaseRetriever):
     def fusion(self, sparse_nodes, dense_nodes):
         all_nodes = []
 
-        node_ids = set()        
+        node_ids = set()
         for n in sparse_nodes + dense_nodes:
             if n.node.node_id not in node_ids:
                 all_nodes.append(n)
                 node_ids.add(n.node.node_id)
         return all_nodes
 
-    #Reciprocal rank fusion
+    # Reciprocal rank fusion
 
-    #TODO fix it two hybridR
+    # TODO fix it two hybridR
     def reciprocal_rank_fusion(*list_of_list_ranks_system, K=60):
         from collections import defaultdict
         """"

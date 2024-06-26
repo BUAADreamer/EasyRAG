@@ -22,6 +22,7 @@ def load_stopwords(path):
         stopwords = set([line.strip() for line in file])
     return stopwords
 
+
 def get_test_data(split="val"):
     if split == 'test':
         queries = read_jsonl("question.jsonl")
@@ -40,6 +41,8 @@ async def main(
         re_only=False,  # 只检索，用于调试检索
         retrieval_type=1,  # 粗排类型
         use_reranker=2,  # 是否使用重排
+        f_topk=192,  # 粗排topk
+        r_topk=6,  # 精排topk
 ):
     config = dotenv_values(".env")
 
@@ -65,10 +68,16 @@ async def main(
         config["COLLECTION_NAME"]
     )
     data_path = config.get("DATA_PATH")
+    chunk_size = int(config.get("CHUNK_SIZE", 1024))
+    chunk_overlap = int(config.get("CHUNK_OVERLAP", 50))
     data = read_data(data_path)
     print(f"文档读入完成，一共有{len(data)}个文档")
     if collection_info.points_count == 0:
-        pipeline = build_pipeline(llm, embedding, vector_store=vector_store, data_path=data_path)
+        pipeline = build_pipeline(
+            llm, embedding, vector_store=vector_store, data_path=data_path,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
         # 暂时停止实时索引
         await client.update_collection(
             collection_name=config["COLLECTION_NAME"],
@@ -82,12 +91,16 @@ async def main(
         )
         print(f"索引建立完成，一共有{len(nodes)}个节点")
     elif retrieval_type != 1:
-        preprocess_pipeline = build_preprocess_pipeline(data_path)
+        preprocess_pipeline = build_preprocess_pipeline(
+            data_path,
+            chunk_size,
+            chunk_overlap,
+        )
         nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
         print(f"索引已建立，一共有{len(nodes)}个节点")
 
     # 加载检索器
-    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=288)
+    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk)
     print(f"创建{config['EMBEDDING_NAME']}密集检索器成功")
 
     sparse_retriever = None
@@ -95,8 +108,8 @@ async def main(
         stp_words = load_stopwords("./data/hit_stopwords.txt")
         import jieba
         tk = jieba.Tokenizer()
-        sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, tokenizer=tk, 
-                                                       similarity_top_k=8, stopwords=stp_words)
+        sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, tokenizer=tk,
+                                                       similarity_top_k=f_topk, stopwords=stp_words)
         print("创建稀疏检索器成功")
 
     if retrieval_type != 1:
@@ -112,14 +125,15 @@ async def main(
     reranker = None
     if use_reranker == 1:
         reranker = SentenceTransformerRerank(
-            top_n=8,
+            top_n=r_topk,
             model=config["RERANKER_NAME"],
         )
         print(f"创建{config['RERANKER_NAME']}重排器成功")
     elif use_reranker == 2:
         reranker = LLMRerank(
-            top_n=8,
+            top_n=r_topk,
             model=config["RERANKER_NAME"],
+            embed_bs=64,  # 控制重排器批大小，减小显存占用
         )
         print(f"创建{config['RERANKER_NAME']}LLM重排器成功")
 
