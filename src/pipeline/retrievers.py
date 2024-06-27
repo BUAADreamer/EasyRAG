@@ -154,6 +154,9 @@ class BM25Retriever(BaseRetriever):
                 nodes.append(NodeWithScore(node=self._nodes[ix], score=float(scores[ix])))
             if len(nodes) == self._similarity_top_k:
                 break
+
+        # add nodes sort in BM25Retriever
+        nodes = sorted(nodes, key=lambda x: x.score, reverse=True)
         return nodes
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
@@ -196,25 +199,23 @@ class HybridRetriever(BaseRetriever):
     # Reciprocal rank fusion
 
     # TODO fix it two hybridR
-    def reciprocal_rank_fusion(*list_of_list_ranks_system, K=60):
+    def reciprocal_rank_fusion(self, *list_of_list_ranks_system, K=60):
         from collections import defaultdict
-        """"
-        Nodes:[1.node:  2.score:]
-        K: default setting => 60
-        Returns:
-        Tuple of list of sorted documents by score and sorted documents
-        """
-        # Dictionary to store RRF mapping
         rrf_map = defaultdict(float)
-
-        # Calculate RRF score for each result in each list
+        text_to_node = {}
         for rank_list in list_of_list_ranks_system:
             for rank, item in enumerate(rank_list, 1):
-                rrf_map[item] += 1 / (rank + K)
-        # Sort items based on their RRF scores in descending order
+                content = item.get_content()
+                text_to_node[content] = item
+                rrf_map[content] += 1 / (rank + K)
         sorted_items = sorted(rrf_map.items(), key=lambda x: x[1], reverse=True)
-        # Return tuple of list of sorted documents by score and sorted documents
-        return sorted_items, [item for item, score in sorted_items]
+        
+        reranked_nodes: List[NodeWithScore] = []
+        for text, score in sorted_items:
+            reranked_nodes.append(text_to_node[text])
+            reranked_nodes[-1].score = score
+
+        return reranked_nodes
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         if self.retrieval_type != 1:
@@ -229,7 +230,8 @@ class HybridRetriever(BaseRetriever):
                 return dense_nodes
 
         # combine the two lists of nodes
-        all_nodes = self.fusion(sparse_nodes, dense_nodes)
+        # all_nodes = self.fusion(sparse_nodes, dense_nodes)
+        all_nodes = self.reciprocal_rank_fusion(sparse_nodes, dense_nodes)
         return all_nodes
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
