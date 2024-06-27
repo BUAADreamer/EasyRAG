@@ -1,6 +1,8 @@
 import asyncio
 import json
 import os
+
+from pipeline.embeddings import GTEEmbedding
 from submit import submit
 import fire
 from dotenv import dotenv_values
@@ -53,12 +55,19 @@ async def main(
         api_base="https://open.bigmodel.cn/api/paas/v4/",
         is_chat_model=True,
     )
-    embedding = HuggingFaceEmbedding(
-        model_name=config.get("EMBEDDING_NAME"),
-        cache_folder=config.get("HFMODEL_CACHE_FOLDER"),
-        embed_batch_size=128,
-        # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
-    )
+    embedding_name = config.get("EMBEDDING_NAME")
+    if "gte" in embedding_name:
+        embedding = GTEEmbedding(
+            model_name=embedding_name,
+            embed_batch_size=128,
+        )
+    else:
+        embedding = HuggingFaceEmbedding(
+            model_name=embedding_name,
+            cache_folder=config.get("HFMODEL_CACHE_FOLDER"),
+            embed_batch_size=128,
+            # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
+        )
     Settings.embed_model = embedding
 
     # 初始化 数据ingestion pipeline 和 vector store

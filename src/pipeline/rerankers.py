@@ -138,7 +138,7 @@ class LLMRerank(BaseNodePostprocessor):
                 trust_remote_code=True,
             ).to(device)
             self._model.eval()
-            self._layer = 40  # set default layer
+            self._layer = 28  # set default layer
         else:
             self._model = AutoModelForCausalLM.from_pretrained(
                 model,
