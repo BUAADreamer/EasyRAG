@@ -43,11 +43,12 @@ async def main(
         re_only=False,  # 只检索，用于调试检索
         retrieval_type=1,  # 粗排类型
         use_reranker=2,  # 是否使用重排
-        f_topk=192,  # 粗排topk
+        f_topk=256,  # 粗排topk
         r_topk=6,  # 精排topk
+        f_topk_1=288,  # dense 粗排topk
+        f_topk_2=192,  # sparse 粗排topk
 ):
     config = dotenv_values(".env")
-
     # 初始化 LLM 嵌入模型 和 Reranker
     llm = OpenAI(
         api_key=GLM_KEY,
@@ -109,7 +110,7 @@ async def main(
         print(f"索引已建立，一共有{len(nodes)}个节点")
 
     # 加载检索器
-    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk)
+    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk_1)
     print(f"创建{config['EMBEDDING_NAME']}密集检索器成功")
 
     sparse_retriever = None
@@ -118,7 +119,7 @@ async def main(
         import jieba
         tk = jieba.Tokenizer()
         sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, tokenizer=tk,
-                                                       similarity_top_k=f_topk, stopwords=stp_words)
+                                                       similarity_top_k=f_topk_2, stopwords=stp_words)
         print("创建稀疏检索器成功")
 
     if retrieval_type != 1:
@@ -126,6 +127,7 @@ async def main(
             dense_retriever=dense_retriever,
             sparse_retriever=sparse_retriever,
             retrieval_type=retrieval_type,  # 1-dense 2-sparse 3-hybrid
+            topk=f_topk,
         )
         print("创建混合检索器成功")
     else:

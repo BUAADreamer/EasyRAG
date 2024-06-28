@@ -177,13 +177,15 @@ class HybridRetriever(BaseRetriever):
             self,
             dense_retriever: QdrantRetriever,
             sparse_retriever: BM25Retriever,
-            retrieval_type=1
+            retrieval_type=1,
+            topk=256,
     ):
         self.dense_retriever = dense_retriever
         self.sparse_retriever = sparse_retriever
         self.retrieval_type = retrieval_type  # 1:dense only 2:sparse only 3:hybrid
         self.filters = None
         self.filter_dict = None
+        self.topk = topk
         super().__init__()
 
     def fusion(self, sparse_nodes, dense_nodes):
@@ -196,9 +198,7 @@ class HybridRetriever(BaseRetriever):
                 node_ids.add(n.node.node_id)
         return all_nodes
 
-    # Reciprocal rank fusion
-
-    # TODO fix it two hybridR
+    # 倒数排序融合
     def reciprocal_rank_fusion(self, *list_of_list_ranks_system, K=60):
         from collections import defaultdict
         rrf_map = defaultdict(float)
@@ -209,13 +209,13 @@ class HybridRetriever(BaseRetriever):
                 text_to_node[content] = item
                 rrf_map[content] += 1 / (rank + K)
         sorted_items = sorted(rrf_map.items(), key=lambda x: x[1], reverse=True)
-        
+
         reranked_nodes: List[NodeWithScore] = []
         for text, score in sorted_items:
             reranked_nodes.append(text_to_node[text])
             reranked_nodes[-1].score = score
 
-        return reranked_nodes
+        return reranked_nodes[:self.topk]
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         if self.retrieval_type != 1:
