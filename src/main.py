@@ -202,9 +202,16 @@ async def main(
     # 处理结果
     print("处理生成内容...")
     os.makedirs("outputs", exist_ok=True)
+
+    # 本地提交
     answer_file = f"outputs/submit_result_{split}_{note}.jsonl"
-    answers = save_answers(queries, results, answer_file)
+    save_answers(queries, results, answer_file)
     print(f"保存结果至 {answer_file}")
+
+    # docker提交
+    answer_file = f"submit_result.jsonl"
+    answers = save_answers(queries, results, answer_file)
+
 
     # 做评测
     os.makedirs("inter", exist_ok=True)
