@@ -55,6 +55,7 @@ async def generation_with_rerank_fusion(
         progress=None,
         re_only: bool = False,
         rerank_fusion_type=2,
+        r_topk_1=6,
 ):
     query_bundle = QueryBundle(query_str=query_str)
 
@@ -66,7 +67,7 @@ async def generation_with_rerank_fusion(
     if reranker:
         node_with_scores_sparse = reranker.postprocess_nodes(node_with_scores_sparse, query_bundle)
 
-    node_with_scores = HybridRetriever.reciprocal_rank_fusion([node_with_scores_sparse, node_with_scores_dense], topk=6)
+    node_with_scores = HybridRetriever.reciprocal_rank_fusion([node_with_scores_sparse, node_with_scores_dense], topk=r_topk_1)
     # node_with_scores = HybridRetriever.fusion([node_with_scores_sparse, node_with_scores_dense], topk=reranker.top_n)
 
     if re_only:

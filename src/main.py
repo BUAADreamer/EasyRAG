@@ -42,14 +42,26 @@ async def main(
         note="best",  # 中间结果保存路径的备注名字
         reindex=False,  # 是否从头开始构建索引
         re_only=False,  # 只检索，用于调试检索
-        retrieval_type=1,  # 粗排类型
+        retrieval_type=2,  # 粗排类型
         use_reranker=2,  # 是否使用重排
         f_topk=256,  # 粗排topk
         r_topk=6,  # 精排topk
+        r_topk_1=6,  # 精排后再fusion的topk
         f_topk_1=288,  # dense 粗排topk
         f_topk_2=192,  # sparse 粗排topk
-        rerank_fusion=2,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果
+        rerank_fusion=1,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果
 ):
+    # 打印参数
+    print("note:", note)
+    print("retrieval_type:", retrieval_type)
+    print("use_reranker:", use_reranker)
+    print("rerank_fusion:", rerank_fusion)
+    print("f_topk:", f_topk)
+    print("f_topk_1:", f_topk_1)
+    print("f_topk_2:", f_topk_2)
+    print("r_topk:", r_topk)
+    print("r_topk_1:", r_topk_1)
+
     config = dotenv_values(".env")
     # 初始化 LLM 嵌入模型 和 Reranker
     llm = OpenAI(
@@ -194,6 +206,7 @@ async def main(
                 re_only=re_only,
                 reranker=reranker,
                 rerank_fusion_type=rerank_fusion,
+                r_topk_1=r_topk_1,
             )
 
         docs.append(contexts)
@@ -211,7 +224,6 @@ async def main(
     # docker提交
     answer_file = f"submit_result.jsonl"
     answers = save_answers(queries, results, answer_file)
-
 
     # 做评测
     os.makedirs("inter", exist_ok=True)
