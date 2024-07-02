@@ -188,18 +188,25 @@ class HybridRetriever(BaseRetriever):
         self.topk = topk
         super().__init__()
 
-    def fusion(self, sparse_nodes, dense_nodes):
+    @classmethod
+    def fusion(self, list_of_list_ranks_system, topk=256):
         all_nodes = []
 
         node_ids = set()
-        for n in sparse_nodes + dense_nodes:
-            if n.node.node_id not in node_ids:
-                all_nodes.append(n)
-                node_ids.add(n.node.node_id)
-        return all_nodes
+        for nodes in list_of_list_ranks_system:
+            for node in nodes:
+                content = node.get_content()
+                if content not in node_ids:
+                    all_nodes.append(node)
+                    node_ids.add(content)
+        all_nodes = sorted(all_nodes, key=lambda node: node.score, reverse=True)
+        topk = min(len(all_nodes), topk)
+        print("simple fusion后数量:", topk)
+        return all_nodes[:topk]
 
+    @classmethod
     # 倒数排序融合
-    def reciprocal_rank_fusion(self, *list_of_list_ranks_system, K=60):
+    def reciprocal_rank_fusion(self, list_of_list_ranks_system, K=60, topk=256):
         from collections import defaultdict
         rrf_map = defaultdict(float)
         text_to_node = {}
@@ -214,8 +221,9 @@ class HybridRetriever(BaseRetriever):
         for text, score in sorted_items:
             reranked_nodes.append(text_to_node[text])
             reranked_nodes[-1].score = score
-
-        return reranked_nodes[:self.topk]
+        topk = min(topk, len(reranked_nodes))
+        print("rrf fusion后数量:", topk)
+        return reranked_nodes[:topk]
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
         if self.retrieval_type != 1:
@@ -231,7 +239,7 @@ class HybridRetriever(BaseRetriever):
 
         # combine the two lists of nodes
         # all_nodes = self.fusion(sparse_nodes, dense_nodes)
-        all_nodes = self.reciprocal_rank_fusion(sparse_nodes, dense_nodes)
+        all_nodes = self.reciprocal_rank_fusion([sparse_nodes, dense_nodes], topk=self.topk)
         return all_nodes
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:

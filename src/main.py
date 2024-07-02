@@ -9,11 +9,12 @@ from dotenv import dotenv_values
 from llama_index.core import Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.legacy.llms import OpenAILike as OpenAI
+# from llama_index.llms.openai import OpenAI
 from qdrant_client import models
 from tqdm.asyncio import tqdm
 from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters, build_preprocess_pipeline
 from pipeline.qa import read_jsonl, save_answers
-from pipeline.rag import generation_with_knowledge_retrieval
+from pipeline.rag import generation_with_knowledge_retrieval, generation_with_rerank_fusion
 from pipeline.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
 from config import GLM_KEY
 from pipeline.rerankers import SentenceTransformerRerank, LLMRerank
@@ -38,7 +39,7 @@ async def main(
         split='test',  # 使用哪个集合
         push=False,  # 是否直接提交这次test结果
         save_inter=True,  # 是否保存检索结果等中间结果
-        note="",  # 中间结果保存路径的备注名字
+        note="best",  # 中间结果保存路径的备注名字
         reindex=False,  # 是否从头开始构建索引
         re_only=False,  # 只检索，用于调试检索
         retrieval_type=1,  # 粗排类型
@@ -47,6 +48,7 @@ async def main(
         r_topk=6,  # 精排topk
         f_topk_1=288,  # dense 粗排topk
         f_topk_2=192,  # sparse 粗排topk
+        rerank_fusion=2,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果
 ):
     config = dotenv_values(".env")
     # 初始化 LLM 嵌入模型 和 Reranker
@@ -100,7 +102,7 @@ async def main(
             optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
         )
         print(f"索引建立完成，一共有{len(nodes)}个节点")
-    elif retrieval_type != 1:
+    else:
         preprocess_pipeline = build_preprocess_pipeline(
             data_path,
             chunk_size,
@@ -113,25 +115,26 @@ async def main(
     dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk_1)
     print(f"创建{config['EMBEDDING_NAME']}密集检索器成功")
 
-    sparse_retriever = None
-    if retrieval_type != 1:
-        stp_words = load_stopwords("./data/hit_stopwords.txt")
-        import jieba
-        tk = jieba.Tokenizer()
-        sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, tokenizer=tk,
-                                                       similarity_top_k=f_topk_2, stopwords=stp_words)
-        print("创建稀疏检索器成功")
+    stp_words = load_stopwords("./data/hit_stopwords.txt")
+    import jieba
+    tk = jieba.Tokenizer()
+    sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, tokenizer=tk,
+                                                   similarity_top_k=f_topk_2, stopwords=stp_words)
+    print("创建BM25稀疏检索器成功")
 
-    if retrieval_type != 1:
+    retriever = dense_retriever
+    if retrieval_type == 1:
+        retriever = dense_retriever
+    elif retrieval_type == 2:
+        retriever = sparse_retriever
+    elif retrieval_type == 3:
         retriever = HybridRetriever(
             dense_retriever=dense_retriever,
             sparse_retriever=sparse_retriever,
             retrieval_type=retrieval_type,  # 1-dense 2-sparse 3-hybrid
             topk=f_topk,
         )
-        print("创建混合检索器成功")
-    else:
-        retriever = dense_retriever
+    print("创建混合检索器成功")
 
     reranker = None
     if use_reranker == 1:
@@ -164,17 +167,35 @@ async def main(
             )
         else:
             filters = None
-        retriever.filters = filters
-        retriever.filter_dict = {
+        filter_dict = {
             "dir": dir
         }
-        result, contexts = await generation_with_knowledge_retrieval(
-            query_str=query["query"],
-            retriever=retriever,
-            llm=llm,
-            re_only=re_only,
-            reranker=reranker,
-        )
+
+        if rerank_fusion == 0:
+            # 常规RAG 一路粗排-精排
+            retriever.filters = filters
+            retriever.filter_dict = filter_dict
+            result, contexts = await generation_with_knowledge_retrieval(
+                query_str=query["query"],
+                retriever=retriever,
+                llm=llm,
+                re_only=re_only,
+                reranker=reranker,
+            )
+        else:
+            # 两路粗排-精排 + 精排后fusion
+            dense_retriever.filters = filters
+            sparse_retriever.filter_dict = filter_dict
+            result, contexts = await generation_with_rerank_fusion(
+                query_str=query["query"],
+                dense_retriever=dense_retriever,
+                sparse_retriever=sparse_retriever,
+                llm=llm,
+                re_only=re_only,
+                reranker=reranker,
+                rerank_fusion_type=rerank_fusion,
+            )
+
         docs.append(contexts)
         results.append(result)
 

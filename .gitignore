@@ -4,9 +4,11 @@
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
+test-*.py
 *.py[cod]
 *$py.class
 .idea/
+scripts/
 # C extensions
 *.so
 temp/
