@@ -7,6 +7,7 @@ git lfs install
 mkdir model
 mkdir model/BAAI
 mkdir model/Alibaba-NLP
+cp src/envs/.env.gte src/.env
 
 # download the model if you need
 git clone https://www.modelscope.cn/mirror013/bge-reranker-v2-minicpm-layerwise.git && mv bge-reranker-v2-minicpm-layerwise model/BAAI/bge-reranker-v2-minicpm-layerwise
