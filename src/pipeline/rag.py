@@ -1,16 +1,13 @@
-from typing import List
-import qdrant_client
-
-from llama_index.core.llms.llm import LLM
-from llama_index.core.postprocessor.types import BaseNodePostprocessor
+from custom.template import QA_TEMPLATE
 from llama_index.core import (
     QueryBundle,
     PromptTemplate,
 )
-from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.base.llms.types import CompletionResponse
+from llama_index.core.llms.llm import LLM
+from llama_index.core.postprocessor.types import BaseNodePostprocessor
+from llama_index.core.retrievers import BaseRetriever
 from pipeline.retrievers import HybridRetriever
-from custom.template import QA_TEMPLATE
 
 
 async def generation_with_knowledge_retrieval(
@@ -54,7 +51,7 @@ async def generation_with_rerank_fusion(
         reranker: BaseNodePostprocessor = None,
         progress=None,
         re_only: bool = False,
-        rerank_fusion_type=2,
+        rerank_fusion_type=1,
         r_topk_1=6,
 ):
     query_bundle = QueryBundle(query_str=query_str)
@@ -67,7 +64,8 @@ async def generation_with_rerank_fusion(
     if reranker:
         node_with_scores_sparse = reranker.postprocess_nodes(node_with_scores_sparse, query_bundle)
 
-    node_with_scores = HybridRetriever.reciprocal_rank_fusion([node_with_scores_sparse, node_with_scores_dense], topk=r_topk_1)
+    node_with_scores = HybridRetriever.reciprocal_rank_fusion([node_with_scores_sparse, node_with_scores_dense],
+                                                              topk=r_topk_1)
     # node_with_scores = HybridRetriever.fusion([node_with_scores_sparse, node_with_scores_dense], topk=reranker.top_n)
 
     if re_only:
@@ -104,9 +102,12 @@ async def generation_with_rerank_fusion(
         if progress:
             progress.update(1)
 
-        if len(ret_dense.text) >= len(ret_sparse.text):
-            ret = ret_dense
-        else:
-            ret = ret_sparse
+        if rerank_fusion_type == 2:
+            if len(ret_dense.text) >= len(ret_sparse.text):
+                ret = ret_dense
+            else:
+                ret = ret_sparse
+        elif rerank_fusion_type == 3:
+            ret = ret_sparse + ret_dense
 
     return ret, node_with_scores

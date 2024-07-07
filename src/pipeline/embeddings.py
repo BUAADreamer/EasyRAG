@@ -1,18 +1,13 @@
 import logging
-from typing import Any, List, Optional
+from typing import Any, List
 
 import torch
 import torch.nn.functional as F
 from llama_index.core.base.embeddings.base import (
-    DEFAULT_EMBED_BATCH_SIZE,
     BaseEmbedding,
 )
-from llama_index.core.bridge.pydantic import Field, PrivateAttr
-from llama_index.core.callbacks import CallbackManager
+from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.utils import infer_torch_device
-from llama_index.embeddings.huggingface.utils import (
-    DEFAULT_HUGGINGFACE_EMBEDDING_MODEL,
-)
 from torch import Tensor
 from utils.modeling_qwen import Qwen2Model
 from utils.tokenization_qwen import Qwen2Tokenizer
@@ -58,7 +53,8 @@ class GTEEmbedding(BaseEmbedding):
         """Embed sentences."""
         max_length = 8192
         # Tokenize the input texts
-        batch_dict = self._tokenizer(texts, max_length=max_length, padding=True, truncation=True, return_tensors='pt').to(self._device)
+        batch_dict = self._tokenizer(texts, max_length=max_length, padding=True, truncation=True,
+                                     return_tensors='pt').to(self._device)
         with torch.no_grad():
             outputs = self._model(**batch_dict)
             embeddings = self.last_token_pool(outputs.last_hidden_state, batch_dict['attention_mask'])

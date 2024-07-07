@@ -130,7 +130,7 @@ class LLMRerank(BaseNodePostprocessor):
 
         self._tokenizer = AutoTokenizer.from_pretrained(model)
         self._yes_loc = self._tokenizer('Yes', add_special_tokens=False)['input_ids'][0]
-        if "BAAI/bge-reranker-v2-minicpm-layerwise" in model:
+        if "bge-reranker-v2-minicpm-layerwise" in model:
             from utils.modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
             self._model = LayerWiseMiniCPMForCausalLM.from_pretrained(
                 model,
@@ -140,6 +140,7 @@ class LLMRerank(BaseNodePostprocessor):
             self._model.eval()
             self._layer = 28  # set default layer
         else:
+            raise NotImplementedError()
             self._model = AutoModelForCausalLM.from_pretrained(
                 model,
                 torch_dtype=torch.bfloat16,

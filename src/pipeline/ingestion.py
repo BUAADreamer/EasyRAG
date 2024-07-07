@@ -1,21 +1,18 @@
-import os
 from typing import List, Dict, Any
 
+from custom.transformation import CustomFilePathExtractor, CustomTitleExtractor
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.embeddings import BaseEmbedding
-from llama_index.core.extractors import SummaryExtractor, BaseExtractor
+from llama_index.core.extractors import BaseExtractor
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.llms.llm import LLM
-from llama_index.core.vector_stores.types import BasePydanticVectorStore, MetadataFilters, MetadataFilter, FilterOperator, ExactMatchFilter
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import Document, MetadataMode, TransformComponent
+from llama_index.core.vector_stores.types import BasePydanticVectorStore, MetadataFilters, MetadataFilter
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.http.models import Filter, FieldCondition, MatchValue
-from llama_index.retrievers.bm25 import BM25Retriever
-from custom.template import SUMMARY_EXTRACT_TEMPLATE
-from custom.transformation import CustomFilePathExtractor, CustomTitleExtractor
 
 
 def read_data(path: str = "data") -> list[Document]:

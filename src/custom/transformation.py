@@ -1,4 +1,5 @@
 from typing import Sequence
+
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.schema import BaseNode
 
@@ -17,7 +18,7 @@ class CustomFilePathExtractor(BaseExtractor):
         metadata_list = []
         for node in nodes:
             node.metadata["file_path"] = "/".join(
-                node.metadata["file_path"].split("/")[-self.last_path_length :]
+                node.metadata["file_path"].split("/")[-self.last_path_length:]
             )
             metadata_list.append(node.metadata)
         return metadata_list

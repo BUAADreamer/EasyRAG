@@ -1,6 +1,7 @@
-import asyncio
 import json
 import os
+
+os.environ['NLTK_DATA'] = './data/nltk_data/'
 
 from pipeline.embeddings import GTEEmbedding
 from submit import submit
@@ -9,10 +10,10 @@ from dotenv import dotenv_values
 from llama_index.core import Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.legacy.llms import OpenAILike as OpenAI
-# from llama_index.llms.openai import OpenAI
 from qdrant_client import models
 from tqdm.asyncio import tqdm
-from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters, build_preprocess_pipeline
+from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters, \
+    build_preprocess_pipeline
 from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import generation_with_knowledge_retrieval, generation_with_rerank_fusion
 from pipeline.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
@@ -28,7 +29,7 @@ def load_stopwords(path):
 
 def get_test_data(split="val"):
     if split == 'test':
-        queries = read_jsonl("question.jsonl")
+        queries = read_jsonl("../data/question.jsonl")
     else:
         with open("dataset/val.json") as f:
             queries = json.loads(f.read())
@@ -49,7 +50,7 @@ async def main(
         r_topk_1=6,  # 精排后再fusion的topk
         f_topk_1=288,  # dense 粗排topk
         f_topk_2=192,  # sparse 粗排topk
-        rerank_fusion=1,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果
+        rerank_fusion=1,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果 3-->两路生成结果拼接
 ):
     # 打印参数
     print("note:", note)
@@ -217,9 +218,9 @@ async def main(
     os.makedirs("outputs", exist_ok=True)
 
     # 本地提交
-    answer_file = f"outputs/submit_result_{split}_{note}.jsonl"
-    save_answers(queries, results, answer_file)
-    print(f"保存结果至 {answer_file}")
+    # answer_file = f"outputs/submit_result_{split}_{note}.jsonl"
+    # save_answers(queries, results, answer_file)
+    # print(f"保存结果至 {answer_file}")
 
     # docker提交
     answer_file = f"submit_result.jsonl"

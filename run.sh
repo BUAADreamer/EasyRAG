@@ -1,36 +1,43 @@
 #!/bin/bash
-
-TEAM_NAME=team-name
-
+TEAM_NAME="sd3"
 git lfs install
+#make some dirs
 
+
+rm -r model
 mkdir model
-mkdir model/BAAI
-mkdir model/Alibaba-NLP
-cp src/envs/.env.gte src/.env
-
-# download the model if you need
-git clone https://www.modelscope.cn/mirror013/bge-reranker-v2-minicpm-layerwise.git && mv bge-reranker-v2-minicpm-layerwise model/BAAI/bge-reranker-v2-minicpm-layerwise
-git clone https://www.modelscope.cn/iic/gte_Qwen2-7B-instruct.git && mv gte_Qwen2-7B-instruct model/Alibaba-NLP/gte-Qwen2-7B-instruct
-
+ cp src/envs/.env.gte src/.env
+# # download the model if you need
+ git clone https://www.modelscope.cn/models/buaadreamer/bge-reranker-v2-minicpm-layerwise && mv bge-reranker-v2-minicpm-layerwise model/bge-reranker-v2-minicpm-layerwise
+ git clone https://www.modelscope.cn/models/buaadreamer/gte-Qwen2-7B-instruct && mv gte-Qwen2-7B-instruct model/gte-Qwen2-7B-instruct
+# prepare data: nltk cache | dataset data
 # download the data
+# handle the data
+
+rm -rf data
 git clone https://www.modelscope.cn/datasets/issaccv/aiops2024-challenge-dataset.git data
+cd data
+mkdir origin_data
+echo "Unzip files..."
+unzip -q -O gb2312 director.zedx -d origin_data/director
+unzip -q -O utf-8 emsplus.zedx -d origin_data/emsplus
+unzip -q -O gb2312 rcp.zedx -d origin_data/rcp
+unzip -q -O utf-8 umac.zedx -d origin_data/umac
+mv origin_data/umac/documents/Namf_MP/zh-CN origin_data/umac/documents/Namf_MP/zh-cn
+echo "Unzip Done"
+cd ..
+echo $PWD
 
-unzip data/data.zip -d data/
+chmod +x src/pipeline.sh
 
-# add data process command
-# python3 ...
-
+# echo "data proprocess Done!"
 # build docker image
 docker build -t "$TEAM_NAME" .
-
 # run docker container with model and data volume with sub network
-docker run --gpus=all -itd --network=aiops24 --name "$TEAM_NAME" -v $PWD/src:/app -v $PWD/model/BAAI:/app/BAAI -v $PWD/data:/data "$TEAM_NAME"
+docker run --gpus=all -itd --network=host --name "$TEAM_NAME" -v $PWD/src:/app -v $PWD/model:/model -v $PWD/data:/data "$TEAM_NAME" 
 
 docker wait "$TEAM_NAME"
-
 # copy the output file from the container to the host
 docker cp "$TEAM_NAME":/app/submit_result.jsonl answer.jsonl
-
 # remove the container
 docker stop "$TEAM_NAME" && docker rm "$TEAM_NAME"

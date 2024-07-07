@@ -13,7 +13,6 @@ from llama_index.core.vector_stores import VectorStoreQuery
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from nltk import PorterStemmer
 from rank_bm25 import BM25Okapi
-import ipdb
 
 logger = logging.getLogger(__name__)
 

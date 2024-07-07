@@ -1,6 +1,3 @@
-from llama_index.core import PromptTemplate
-
-
 QA_TEMPLATE = """\
     上下文信息如下：
     ----------
@@ -11,7 +8,6 @@ QA_TEMPLATE = """\
 
     回答：\
     """
-
 
 SUMMARY_EXTRACT_TEMPLATE = """\
     这是这一小节的内容：
