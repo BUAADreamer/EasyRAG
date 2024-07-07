@@ -1,19 +1,18 @@
 #!/bin/bash
+
+# 搜得都队
 TEAM_NAME="sd3"
 git lfs install
 #make some dirs
 
-
 rm -r model
 mkdir model
- cp src/envs/.env.gte src/.env
+cp src/envs/.env.gte src/.env
 # # download the model if you need
- git clone https://www.modelscope.cn/models/buaadreamer/bge-reranker-v2-minicpm-layerwise && mv bge-reranker-v2-minicpm-layerwise model/bge-reranker-v2-minicpm-layerwise
- git clone https://www.modelscope.cn/models/buaadreamer/gte-Qwen2-7B-instruct && mv gte-Qwen2-7B-instruct model/gte-Qwen2-7B-instruct
-# prepare data: nltk cache | dataset data
-# download the data
-# handle the data
+git clone https://www.modelscope.cn/models/buaadreamer/bge-reranker-v2-minicpm-layerwise && mv bge-reranker-v2-minicpm-layerwise model/bge-reranker-v2-minicpm-layerwise
+git clone https://www.modelscope.cn/models/buaadreamer/gte-Qwen2-7B-instruct && mv gte-Qwen2-7B-instruct model/gte-Qwen2-7B-instruct
 
+# prepare dataset and unzip
 rm -rf data
 git clone https://www.modelscope.cn/datasets/issaccv/aiops2024-challenge-dataset.git data
 cd data
@@ -30,7 +29,6 @@ echo $PWD
 
 chmod +x src/pipeline.sh
 
-# echo "data proprocess Done!"
 # build docker image
 docker build -t "$TEAM_NAME" .
 # run docker container with model and data volume with sub network
