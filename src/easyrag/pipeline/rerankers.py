@@ -66,7 +66,7 @@ class SentenceTransformerRerank(BaseNodePostprocessor):
         query_and_nodes = [
             (
                 query_bundle.query_str,
-                node.node.get_content(metadata_mode=MetadataMode.EMBED),
+                node.node.get_content(metadata_mode=MetadataMode.NONE),
             )
             for node in nodes
         ]
@@ -131,7 +131,7 @@ class LLMRerank(BaseNodePostprocessor):
         self._tokenizer = AutoTokenizer.from_pretrained(model)
         self._yes_loc = self._tokenizer('Yes', add_special_tokens=False)['input_ids'][0]
         if "bge-reranker-v2-minicpm-layerwise" in model:
-            from utils.modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
+            from ..utils.modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
             self._model = LayerWiseMiniCPMForCausalLM.from_pretrained(
                 model,
                 torch_dtype=torch.bfloat16,
@@ -221,7 +221,7 @@ class LLMRerank(BaseNodePostprocessor):
             query_and_nodes = [
                 (
                     query_bundle.query_str,
-                    node.node.get_content(metadata_mode=MetadataMode.EMBED),
+                    node.node.get_content(metadata_mode=MetadataMode.NONE),
                 )
                 for node in cur_nodes
             ]

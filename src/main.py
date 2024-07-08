@@ -3,7 +3,7 @@ import os
 
 os.environ['NLTK_DATA'] = './data/nltk_data/'
 
-from pipeline.embeddings import GTEEmbedding
+from easyrag.pipeline.embeddings import GTEEmbedding
 from submit import submit
 import fire
 from dotenv import dotenv_values
@@ -12,13 +12,13 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
 from tqdm.asyncio import tqdm
-from pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters, \
+from easyrag.pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters, \
     build_preprocess_pipeline
-from pipeline.qa import read_jsonl, save_answers
-from pipeline.rag import generation_with_knowledge_retrieval, generation_with_rerank_fusion
-from pipeline.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
-from config import GLM_KEY
-from pipeline.rerankers import SentenceTransformerRerank, LLMRerank
+from easyrag.pipeline.qa import read_jsonl, save_answers
+from easyrag.pipeline.rag import generation_with_knowledge_retrieval, generation_with_rerank_fusion
+from easyrag.pipeline.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
+from easyrag.config import GLM_KEY
+from easyrag.pipeline.rerankers import SentenceTransformerRerank, LLMRerank
 
 
 def load_stopwords(path):
@@ -50,7 +50,7 @@ async def main(
         r_topk_1=6,  # 精排后再fusion的topk
         f_topk_1=288,  # dense 粗排topk
         f_topk_2=192,  # sparse 粗排topk
-        rerank_fusion=1,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果 3-->两路生成结果拼接
+        rerank_fusion=0,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果 3-->两路生成结果拼接
 ):
     # 打印参数
     print("note:", note)
@@ -64,6 +64,7 @@ async def main(
     print("r_topk_1:", r_topk_1)
 
     config = dotenv_values(".env")
+    config['DATA_PATH'] = os.path.abspath(config['DATA_PATH'])
     # 初始化 LLM 嵌入模型 和 Reranker
     llm = OpenAI(
         api_key=GLM_KEY,
@@ -86,35 +87,37 @@ async def main(
         )
     Settings.embed_model = embedding
 
-    # 初始化 数据ingestion pipeline 和 vector store
-    client, vector_store = await build_vector_store(config, reindex=reindex)
-
-    collection_info = await client.get_collection(
-        config["COLLECTION_NAME"]
-    )
     data_path = config.get("DATA_PATH")
     chunk_size = int(config.get("CHUNK_SIZE", 1024))
     chunk_overlap = int(config.get("CHUNK_OVERLAP", 50))
     data = read_data(data_path)
     print(f"文档读入完成，一共有{len(data)}个文档")
-    if collection_info.points_count == 0:
-        pipeline = build_pipeline(
-            llm, embedding, vector_store=vector_store, data_path=data_path,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
+    vector_store = None
+    if retrieval_type != 2:
+        # 初始化 数据ingestion pipeline 和 vector store
+        client, vector_store = await build_vector_store(config, reindex=reindex)
+
+        collection_info = await client.get_collection(
+            config["COLLECTION_NAME"]
         )
-        # 暂时停止实时索引
-        await client.update_collection(
-            collection_name=config["COLLECTION_NAME"],
-            optimizer_config=models.OptimizersConfigDiff(indexing_threshold=0),
-        )
-        nodes = await pipeline.arun(documents=data, show_progress=True, num_workers=1)
-        # 恢复实时索引
-        await client.update_collection(
-            collection_name=config["COLLECTION_NAME"],
-            optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
-        )
-        print(f"索引建立完成，一共有{len(nodes)}个节点")
+        if collection_info.points_count == 0:
+            pipeline = build_pipeline(
+                llm, embedding, vector_store=vector_store, data_path=data_path,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+            )
+            # 暂时停止实时索引
+            await client.update_collection(
+                collection_name=config["COLLECTION_NAME"],
+                optimizer_config=models.OptimizersConfigDiff(indexing_threshold=0),
+            )
+            nodes = await pipeline.arun(documents=data, show_progress=True, num_workers=1)
+            # 恢复实时索引
+            await client.update_collection(
+                collection_name=config["COLLECTION_NAME"],
+                optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
+            )
+            print(f"索引建立完成，一共有{len(nodes)}个节点")
     else:
         preprocess_pipeline = build_preprocess_pipeline(
             data_path,
@@ -135,7 +138,6 @@ async def main(
                                                    similarity_top_k=f_topk_2, stopwords=stp_words)
     print("创建BM25稀疏检索器成功")
 
-    retriever = dense_retriever
     if retrieval_type == 1:
         retriever = dense_retriever
     elif retrieval_type == 2:
@@ -218,13 +220,13 @@ async def main(
     os.makedirs("outputs", exist_ok=True)
 
     # 本地提交
-    # answer_file = f"outputs/submit_result_{split}_{note}.jsonl"
-    # save_answers(queries, results, answer_file)
-    # print(f"保存结果至 {answer_file}")
+    answer_file = f"outputs/submit_result_{split}_{note}.jsonl"
+    answers = save_answers(queries, results, answer_file)
+    print(f"保存结果至 {answer_file}")
 
     # docker提交
-    answer_file = f"submit_result.jsonl"
-    answers = save_answers(queries, results, answer_file)
+    # answer_file = f"submit_result.jsonl"
+    # answers = save_answers(queries, results, answer_file)
 
     # 做评测
     os.makedirs("inter", exist_ok=True)

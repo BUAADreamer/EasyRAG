@@ -1,4 +1,4 @@
-from custom.template import QA_TEMPLATE
+from ..custom.template import QA_TEMPLATE
 from llama_index.core import (
     QueryBundle,
     PromptTemplate,
@@ -7,7 +7,7 @@ from llama_index.core.base.llms.types import CompletionResponse
 from llama_index.core.llms.llm import LLM
 from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.core.retrievers import BaseRetriever
-from pipeline.retrievers import HybridRetriever
+from ..pipeline.retrievers import HybridRetriever
 
 
 async def generation_with_knowledge_retrieval(
@@ -29,8 +29,9 @@ async def generation_with_knowledge_retrieval(
         if debug:
             print(f"reranked:\n{node_with_scores}\n------")
     context_str = "\n\n".join(
-        [f"{node.metadata['document_title']}: {node.text}" for node in node_with_scores]
+        [f"### 文档{i}: {node.text}" for i, node in enumerate(node_with_scores)]
     )
+
     if re_only:
         return CompletionResponse(text=""), node_with_scores
     fmt_qa_prompt = PromptTemplate(qa_template).format(
