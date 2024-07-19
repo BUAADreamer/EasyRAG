@@ -1,7 +1,7 @@
 from openai import OpenAI
 from zhipuai import ZhipuAI
 
-from config import GLM_KEY
+from ..config import GLM_KEY
 
 
 def zhipu_generate(text, model="glm-4", system=""):

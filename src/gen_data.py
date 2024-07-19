@@ -5,8 +5,8 @@ import random
 import fire
 from tqdm import tqdm
 
-from pipeline.ingestion import read_data
-from pipeline.llm_utils import zhipu_generate, openai_generate
+from easyrag.pipeline.ingestion import read_data
+from easyrag.pipeline.llm_utils import zhipu_generate, openai_generate
 from dotenv import dotenv_values
 
 

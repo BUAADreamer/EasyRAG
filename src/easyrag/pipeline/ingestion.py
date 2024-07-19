@@ -1,12 +1,12 @@
 from typing import List, Dict, Any
 
-from custom.transformation import CustomFilePathExtractor, CustomTitleExtractor
+from ..custom.transformation import CustomFilePathExtractor, CustomTitleExtractor
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.embeddings import BaseEmbedding
 from llama_index.core.extractors import BaseExtractor
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.llms.llm import LLM
-from llama_index.core.node_parser import SentenceSplitter
+from ..custom.splitter import SentenceSplitter
 from llama_index.core.schema import Document, MetadataMode, TransformComponent
 from llama_index.core.vector_stores.types import BasePydanticVectorStore, MetadataFilters, MetadataFilter
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -100,7 +100,7 @@ async def build_vector_store(
     client = AsyncQdrantClient(
         # url=config["QDRANT_URL"],
         # location=":memory:",
-        path="cache/",
+        path=config['cache_path'],
     )
     if reindex:
         try:

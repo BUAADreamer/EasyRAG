@@ -7,10 +7,11 @@ from llama_index.core.base.embeddings.base import (
     BaseEmbedding,
 )
 from llama_index.core.bridge.pydantic import PrivateAttr
+from llama_index.core.schema import BaseNode, MetadataMode
 from llama_index.core.utils import infer_torch_device
 from torch import Tensor
-from utils.modeling_qwen import Qwen2Model
-from utils.tokenization_qwen import Qwen2Tokenizer
+from ..utils.modeling_qwen import Qwen2Model
+from ..utils.tokenization_qwen import Qwen2Tokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -81,3 +82,25 @@ class GTEEmbedding(BaseEmbedding):
     def _get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Embed sentences."""
         return self._embed(texts)
+
+    def __call__(self, nodes: List[BaseNode], **kwargs: Any) -> List[BaseNode]:
+        embeddings = self.get_text_embedding_batch(
+            [node.get_content(metadata_mode=MetadataMode.NONE) for node in nodes],
+            **kwargs,
+        )
+
+        for node, embedding in zip(nodes, embeddings):
+            node.embedding = embedding
+
+        return nodes
+
+    async def acall(self, nodes: List[BaseNode], **kwargs: Any) -> List[BaseNode]:
+        embeddings = await self.aget_text_embedding_batch(
+            [node.get_content(metadata_mode=MetadataMode.NONE) for node in nodes],
+            **kwargs,
+        )
+
+        for node, embedding in zip(nodes, embeddings):
+            node.embedding = embedding
+
+        return nodes
