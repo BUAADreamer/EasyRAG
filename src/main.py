@@ -29,9 +29,9 @@ def load_stopwords(path):
 
 def get_test_data(split="val"):
     if split == 'test':
-        queries = read_jsonl("../data/question.jsonl")
+        queries = read_jsonl("data/question.jsonl")
     else:
-        with open("dataset/val.json") as f:
+        with open("data/val.json") as f:
             queries = json.loads(f.read())
     return queries
 

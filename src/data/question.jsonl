@@ -1,0 +1,103 @@
+{"id": 1, "query": "光纤出现损耗时用什么定位故障点", "document": "rcp"}
+{"id": 2, "query": "RCP有哪些操作维护功能", "document": "rcp"}
+{"id": 3, "query": "支持N+1工作模式的VM类型有哪些", "document": "rcp"}
+{"id": 4, "query": "最基本的故障处理有什么办法？", "document": "umac"}
+{"id": 5, "query": "uMAC AMF通过什么方式向UE更新时间信息，包括时区、时间以及夏令时。", "document": "umac"}
+{"id": 6, "query": "初始注册和注册更新有什么关系", "document": "umac"}
+{"id": 7, "query": "告警上报的过程是什么", "document": "rcp"}
+{"id": 8, "query": "MME在网元承载去激活流程中，主要起什么作用？", "document": "umac"}
+{"id": 9, "query": "怎么样开启负荷控制？", "document": "umac"}
+{"id": 10, "query": "对于故障评估，如果发起联合决策？", "document": "umac"}
+{"id": 11, "query": "ZXUN uMAC提供了哪些公共微服务", "document": "umac"}
+{"id": 12, "query": "怎么样容器复位？", "document": "umac"}
+{"id": 13, "query": "MME给UE分配TA List的作用是什么？", "document": "umac"}
+{"id": 14, "query": "APN-AMBR和UE-AMBR的区别是什么？", "document": "umac"}
+{"id": 15, "query": "配置对接数据是运营商通过NF开展各种业务的必要前提，但由于系统组网的复杂性，各种组网条件下的对接数据的配置过程也各不相同。降低数据配置的复杂性有何措施呢？", "document": "umac"}
+{"id": 16, "query": "AMF和NRF之间不通应该怎么处理？", "document": "umac"}
+{"id": 17, "query": "怎么样数据备份？", "document": "umac"}
+{"id": 18, "query": "AKA是什么意思", "document": "rcp"}
+{"id": 19, "query": "如何整局重启", "document": "rcp"}
+{"id": 20, "query": "收集故障信息有什么用？", "document": "umac"}
+{"id": 21, "query": "MME分配TA List需要保证TA List内的TA的同质性，需要考虑的方面和原因？", "document": "umac"}
+{"id": 22, "query": "告警码2533773077代表什么意思", "document": "rcp"}
+{"id": 23, "query": "Home Routed模式下，用户PDU会话终结在哪？", "document": "rcp"}
+{"id": 24, "query": "Diameter看门狗检测可以探测哪些网元", "document": "rcp"}
+{"id": 25, "query": "基站建链失败，原因值是Unknown PLMN，是什么原因？", "document": "umac"}
+{"id": 26, "query": "如何在安装后检查网元名称", "document": "rcp"}
+{"id": 27, "query": "MME分配TA List，范围过大和过小，都会带来哪些问题？", "document": "umac"}
+{"id": 28, "query": "uMAC引入注册区域管理有什么好处。", "document": "umac"}
+{"id": 29, "query": "rcp中N36接口采用什么协议？", "document": "rcp"}
+{"id": 30, "query": "什么是N+M备份", "document": "umac"}
+{"id": 31, "query": "AMF给SMF发送消息为什么没有携带N26指示？", "document": "umac"}
+{"id": 32, "query": "如何强制重启虚机", "document": "rcp"}
+{"id": 33, "query": "注册流程涉及多个NF/网元，通过这些NF和网元的协作，完成用户注册。对于AMF而言，在注册流程中承担什么作用。", "document": "umac"}
+{"id": 34, "query": "故障处理记录表中需要填写哪些内容", "document": "rcp"}
+{"id": 35, "query": "分NFS存储是否支持TXT方式？", "document": "rcp"}
+{"id": 36, "query": "rcp支持几种容灾方式，分别是什么？", "document": "rcp"}
+{"id": 37, "query": "怎么样虚机复位？", "document": "umac"}
+{"id": 38, "query": "rcp用户权限分为几层，分别是哪几层", "document": "rcp"}
+{"id": 39, "query": "出现“IPU虚机异常”告警应该怎么排查？", "document": "umac"}
+{"id": 40, "query": "对于故障的应急处理应该遵循哪些基本原则？", "document": "umac"}
+{"id": 41, "query": "rcp中SMS接口对接哪个网元？", "document": "rcp"}
+{"id": 42, "query": "如何优雅重启虚机", "document": "rcp"}
+{"id": 43, "query": "外场维护人员需要掌握哪一些专业技能？", "document": "umac"}
+{"id": 44, "query": "如何判断AMF发生信令风暴特征？", "document": "umac"}
+{"id": 45, "query": "在业务服务模型和资源模型的映射关系中，POD和VRU之间的映射比例是多少", "document": "rcp"}
+{"id": 46, "query": "外场维护人员如何判断是否是重大故障？", "document": "umac"}
+{"id": 47, "query": "MME为什么要会触发PDN重建？", "document": "umac"}
+{"id": 48, "query": "VNF部件包括哪5类NFS？", "document": "rcp"}
+{"id": 49, "query": "服务组件sc-pcf-dap的功能描述是什么", "document": "rcp"}
+{"id": 50, "query": "UE分别在空闲态和连接态，MME知道UE为位置粒度是什么样的？", "document": "umac"}
+{"id": 51, "query": "PCF与NRF对接时，一般需要配置哪些数据？", "document": "rcp"}
+{"id": 52, "query": "Npcf_SMPolicyControl服务包含哪些操作？", "document": "rcp"}
+{"id": 53, "query": "什么是裸金属", "document": "director"}
+{"id": 54, "query": "RCP策略决策包括哪些策略类型？", "document": "rcp"}
+{"id": 55, "query": "RCP在IaaS架构下有哪些GSU虚机？", "document": "rcp"}
+{"id": 56, "query": "Director部署过程中有个网卡固化操作，那是在什么场景下做？", "document": "director"}
+{"id": 57, "query": "虚拟资源包括哪些种类", "document": "director"}
+{"id": 58, "query": "物理机通用场景纳管1500台主机需要哪种部署规模、几个节点？", "document": "director"}
+{"id": 59, "query": "发布虚机前有哪些准备工作？", "document": "director"}
+{"id": 60, "query": "发布镜像时，镜像源支持哪几种方式？", "document": "director"}
+{"id": 61, "query": "Director告警南向设置是在哪个界面上", "document": "director"}
+{"id": 62, "query": "RCP包含哪些数据存储类服务？", "document": "rcp"}
+{"id": 63, "query": "RCP怎样实现语音会话隔离？", "document": "rcp"}
+{"id": 64, "query": "N7/Gx会话授权时长在哪配置？", "document": "rcp"}
+{"id": 65, "query": "RCP和SPR之间有哪些接口？分别实现什么功能？", "document": "rcp"}
+{"id": 66, "query": "PCF哪些服务被AMF调用？", "document": "rcp"}
+{"id": 67, "query": "Director性能数据最长可以保存多久？", "document": "director"}
+{"id": 68, "query": "PCF作为服务端时，AMF和SMF一般根据什么发现PCF", "document": "rcp"}
+{"id": 69, "query": "Daisyseed安装软件从哪里获取", "document": "director"}
+{"id": 70, "query": "Director中的组织是什么概念？", "document": "director"}
+{"id": 71, "query": "PCC规则的Precedence用途是什么？", "document": "rcp"}
+{"id": 72, "query": "物理机加非容灾部署场景下，什么时候需要用到Sto-Mgt网络？", "document": "director"}
+{"id": 73, "query": "外部系统想要采集Director的性能数据，可以怎么解决？", "document": "director"}
+{"id": 74, "query": "N7会话的ResourceURI由哪个网元在哪个消息中生成", "document": "rcp"}
+{"id": 75, "query": "SSH登录Director节点之前需要准备些什么", "document": "director"}
+{"id": 76, "query": "Director的部署工具是什么", "document": "director"}
+{"id": 77, "query": "PCF通过Nnrf接口完成什么功能？", "document": "rcp"}
+{"id": 78, "query": "命令行部署失败后，如果要断点续装，执行什么命令？", "document": "director"}
+{"id": 79, "query": "N7接口的IMSI、MSISDN、IMEISV分别在哪个参数中传递", "document": "rcp"}
+{"id": 80, "query": "RCP的HTTP信令路由包括哪些功能？", "document": "rcp"}
+{"id": 81, "query": "AMF使用什么协议来保证时间正确", "document": "umac"}
+{"id": 82, "query": "4G已经提供了VoLTE语音功能，为什么还要引入CSFB语音功能？", "document": "umac"}
+{"id": 83, "query": "VNF弹性分几类？", "document": "umac"}
+{"id": 84, "query": "处理故障需要遵循哪些操作思路？", "document": "umac"}
+{"id": 85, "query": "如何查看虚机的内存占用？", "document": "emsplus"}
+{"id": 86, "query": "AMF如何识别对端SMF故障或恢复？", "document": "umac"}
+{"id": 87, "query": "IPDR怎么查询用户上网日志？", "document": "emsplus"}
+{"id": 88, "query": "License文件过期影响业务怎么办？", "document": "emsplus"}
+{"id": 89, "query": "不同类型的SC间是如何发现彼此的？", "document": "umac"}
+{"id": 90, "query": "CPU使用率过高的影响有哪些？", "document": "emsplus"}
+{"id": 91, "query": "安装前的准备工作有哪些？", "document": "umac"}
+{"id": 92, "query": "怎么查看是否有用户尝试执行未授权的命令？", "document": "emsplus"}
+{"id": 93, "query": "服务化架构由一系列业务服务NFS和服务组件SC构成。uMAC的业务类服务包含哪些服务", "document": "umac"}
+{"id": 94, "query": "服务化架构由一系列业务服务NFS和服务组件SC构成。uMAC的MMESGSN Sevice服务包含哪些SC", "document": "umac"}
+{"id": 95, "query": "AMF软参包含哪几类？", "document": "umac"}
+{"id": 96, "query": "EMSPlus Logging产品网络平面有哪几种类型？", "document": "emsplus"}
+{"id": 97, "query": "如何创建定时任务？", "document": "emsplus"}
+{"id": 98, "query": "EMSPlus告警种类有种？", "document": "emsplus"}
+{"id": 99, "query": "uMAC网元VNFC有哪几种备份方式", "document": "umac"}
+{"id": 100, "query": "EMSPlus支持DPU和其他业务模块同时扩容吗？", "document": "emsplus"}
+{"id": 101, "query": "Logging日志查询预定义模板包含哪些？", "document": "emsplus"}
+{"id": 102, "query": "EMSPLus如何配置分发IP地址", "document": "emsplus"}
+{"id": 103, "query": "ZXUN uMAC系统为什么采用服务化架构", "document": "umac"}
