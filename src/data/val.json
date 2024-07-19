@@ -127,9 +127,13 @@
     "document": "rcp",
     "keywords": [
       "ADD ADJHOSTGRP",
+      "增加邻接主机组",
       "ADD ADJHOSTWD",
+      "增加邻接主机通配",
       "ADD ADJHOSTIP",
-      "ADD BEARABILITY"
+      "增加邻接主机IP配置",
+      "ADD BEARABILITY",
+      "增加承载能力"
     ]
   },
   {
@@ -138,9 +142,6 @@
     "answer": "只验证过TECS虚机和vmware虚机，没有验证过华为云虚机，所以不能确定行不行。",
     "document": "director",
     "keywords": [
-      "TECS虚机",
-      "vmware虚机",
-      "华为云虚机",
       "不能确定"
     ]
   },
