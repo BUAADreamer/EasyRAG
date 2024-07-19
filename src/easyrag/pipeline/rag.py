@@ -7,7 +7,16 @@ from llama_index.core.base.llms.types import CompletionResponse
 from llama_index.core.llms.llm import LLM
 from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.core.retrievers import BaseRetriever
-from ..pipeline.retrievers import HybridRetriever
+from ..custom.retrievers import HybridRetriever
+
+
+async def generation(llm, fmt_qa_prompt):
+    while True:
+        try:
+            ret = await llm.acomplete(fmt_qa_prompt)
+            return ret
+        except Exception as e:
+            print(e)
 
 
 async def generation_with_knowledge_retrieval(
@@ -37,9 +46,7 @@ async def generation_with_knowledge_retrieval(
     fmt_qa_prompt = PromptTemplate(qa_template).format(
         context_str=context_str, query_str=query_str
     )
-    ret = await llm.acomplete(fmt_qa_prompt)
-    if progress:
-        progress.update(1)
+    ret = await generation(llm, fmt_qa_prompt)
     return ret, node_with_scores
 
 
@@ -79,9 +86,7 @@ async def generation_with_rerank_fusion(
         fmt_qa_prompt = PromptTemplate(qa_template).format(
             context_str=context_str, query_str=query_str
         )
-        ret = await llm.acomplete(fmt_qa_prompt)
-        if progress:
-            progress.update(1)
+        ret = await generation(llm, fmt_qa_prompt)
     else:
         context_str = "\n\n".join(
             [f"{node.metadata['document_title']}: {node.text}" for node in node_with_scores_sparse]
@@ -89,7 +94,7 @@ async def generation_with_rerank_fusion(
         fmt_qa_prompt = PromptTemplate(qa_template).format(
             context_str=context_str, query_str=query_str
         )
-        ret_sparse = await llm.acomplete(fmt_qa_prompt)
+        ret_sparse = await generation(llm, fmt_qa_prompt)
         if progress:
             progress.update(1)
 
@@ -99,9 +104,7 @@ async def generation_with_rerank_fusion(
         fmt_qa_prompt = PromptTemplate(qa_template).format(
             context_str=context_str, query_str=query_str
         )
-        ret_dense = await llm.acomplete(fmt_qa_prompt)
-        if progress:
-            progress.update(1)
+        ret_dense = await generation(llm, fmt_qa_prompt)
 
         if rerank_fusion_type == 2:
             if len(ret_dense.text) >= len(ret_sparse.text):

@@ -3,7 +3,7 @@ import os
 
 os.environ['NLTK_DATA'] = './data/nltk_data/'
 
-from easyrag.pipeline.embeddings import GTEEmbedding
+from easyrag.custom.embeddings import GTEEmbedding
 from submit import submit
 import fire
 from dotenv import dotenv_values
@@ -16,9 +16,9 @@ from easyrag.pipeline.ingestion import build_pipeline, build_vector_store, read_
     build_preprocess_pipeline
 from easyrag.pipeline.qa import read_jsonl, save_answers
 from easyrag.pipeline.rag import generation_with_knowledge_retrieval, generation_with_rerank_fusion
-from easyrag.pipeline.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
+from easyrag.custom.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
 from easyrag.config import GLM_KEY
-from easyrag.pipeline.rerankers import SentenceTransformerRerank, LLMRerank
+from easyrag.custom.rerankers import SentenceTransformerRerank, LLMRerank
 
 
 def load_stopwords(path):
