@@ -118,14 +118,13 @@ async def main(
                 optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
             )
             print(f"索引建立完成，一共有{len(nodes)}个节点")
-    else:
-        preprocess_pipeline = build_preprocess_pipeline(
-            data_path,
-            chunk_size,
-            chunk_overlap,
-        )
-        nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
-        print(f"索引已建立，一共有{len(nodes)}个节点")
+    preprocess_pipeline = build_preprocess_pipeline(
+        data_path,
+        chunk_size,
+        chunk_overlap,
+    )
+    nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
+    print(f"索引已建立，一共有{len(nodes)}个节点")
 
     # 加载检索器
     dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk_1)
@@ -162,7 +161,7 @@ async def main(
         reranker = LLMRerank(
             top_n=r_topk,
             model=config["RERANKER_NAME"],
-            embed_bs=64,  # 控制重排器批大小，减小显存占用
+            embed_bs=32,  # 控制重排器批大小，减小显存占用
         )
         print(f"创建{config['RERANKER_NAME']}LLM重排器成功")
 

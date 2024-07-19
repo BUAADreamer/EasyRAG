@@ -10,13 +10,28 @@ from llama_index.core.retrievers import BaseRetriever
 from ..custom.retrievers import HybridRetriever
 
 
+def filter_specfic_words(prompt):
+    word_dict = {
+        "支持\nZDB": "ZDB"
+    }
+    for key, value in word_dict.items():
+        prompt = prompt.replace(key, value)
+    return prompt
+
+
 async def generation(llm, fmt_qa_prompt):
+    cnt = 0
+    # fmt_qa_prompt = filter_specfic_words(fmt_qa_prompt)
     while True:
         try:
             ret = await llm.acomplete(fmt_qa_prompt)
             return ret
         except Exception as e:
             print(e)
+            cnt += 1
+            if cnt >= 10:
+                return CompletionResponse(text="无法确定")
+            print(f"已重复生成{cnt}次")
 
 
 async def generation_with_knowledge_retrieval(
@@ -81,7 +96,7 @@ async def generation_with_rerank_fusion(
 
     if rerank_fusion_type == 1:
         context_str = "\n\n".join(
-            [f"{node.metadata['document_title']}: {node.text}" for node in node_with_scores]
+            [f"### 文档{i}: {node.text}" for i, node in enumerate(node_with_scores_dense)]
         )
         fmt_qa_prompt = PromptTemplate(qa_template).format(
             context_str=context_str, query_str=query_str
@@ -89,14 +104,12 @@ async def generation_with_rerank_fusion(
         ret = await generation(llm, fmt_qa_prompt)
     else:
         context_str = "\n\n".join(
-            [f"{node.metadata['document_title']}: {node.text}" for node in node_with_scores_sparse]
+            [f"### 文档{i}: {node.text}" for i, node in enumerate(node_with_scores_sparse)]
         )
         fmt_qa_prompt = PromptTemplate(qa_template).format(
             context_str=context_str, query_str=query_str
         )
         ret_sparse = await generation(llm, fmt_qa_prompt)
-        if progress:
-            progress.update(1)
 
         context_str = "\n\n".join(
             [f"{node.metadata['document_title']}: {node.text}" for node in node_with_scores_dense]
