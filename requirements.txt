@@ -106,3 +106,4 @@ transformers==4.41.2
 fire==0.6.0
 accelerate==0.31.0
 lxml==5.2.2
+html2text==2024.2.26
