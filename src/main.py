@@ -1,13 +1,16 @@
 import json
 import os
 
+from llama_index.core.retrievers import AutoMergingRetriever
+from llama_index.core.storage.docstore import SimpleDocumentStore
+
 os.environ['NLTK_DATA'] = './data/nltk_data/'
 
 from easyrag.custom.embeddings import GTEEmbedding
 from submit import submit
 import fire
 from dotenv import dotenv_values
-from llama_index.core import Settings
+from llama_index.core import Settings, StorageContext
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
@@ -19,6 +22,7 @@ from easyrag.pipeline.rag import generation_with_knowledge_retrieval, generation
 from easyrag.custom.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
 from easyrag.config import GLM_KEY
 from easyrag.custom.rerankers import SentenceTransformerRerank, LLMRerank
+from llama_index.core.node_parser import get_leaf_nodes
 
 
 def load_stopwords(path):
@@ -51,6 +55,7 @@ async def main(
         f_topk_1=288,  # dense 粗排topk
         f_topk_2=192,  # sparse 粗排topk
         rerank_fusion=0,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果 3-->两路生成结果拼接
+        split_type=0,  # 0-->Sentence 1-->Hierarchical
 ):
     # 打印参数
     print("note:", note)
@@ -62,6 +67,7 @@ async def main(
     print("f_topk_2:", f_topk_2)
     print("r_topk:", r_topk)
     print("r_topk_1:", r_topk_1)
+    print("split_type:", split_type)
 
     config = dotenv_values(".env")
     config['DATA_PATH'] = os.path.abspath(config['DATA_PATH'])
@@ -73,18 +79,21 @@ async def main(
         is_chat_model=True,
     )
     embedding_name = config.get("EMBEDDING_NAME")
-    if "gte" in embedding_name:
-        embedding = GTEEmbedding(
-            model_name=embedding_name,
-            embed_batch_size=128,
-        )
+    if retrieval_type != 2:
+        if "gte" in embedding_name:
+            embedding = GTEEmbedding(
+                model_name=embedding_name,
+                embed_batch_size=128,
+            )
+        else:
+            embedding = HuggingFaceEmbedding(
+                model_name=embedding_name,
+                cache_folder=config.get("HFMODEL_CACHE_FOLDER"),
+                embed_batch_size=128,
+                # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
+            )
     else:
-        embedding = HuggingFaceEmbedding(
-            model_name=embedding_name,
-            cache_folder=config.get("HFMODEL_CACHE_FOLDER"),
-            embed_batch_size=128,
-            # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
-        )
+        embedding = None
     Settings.embed_model = embedding
 
     data_path = config.get("DATA_PATH")
@@ -122,6 +131,7 @@ async def main(
         data_path,
         chunk_size,
         chunk_overlap,
+        split_type,
     )
     nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
     print(f"索引已建立，一共有{len(nodes)}个节点")
@@ -133,8 +143,22 @@ async def main(
     stp_words = load_stopwords("./data/hit_stopwords.txt")
     import jieba
     tk = jieba.Tokenizer()
-    sparse_retriever = BM25Retriever.from_defaults(nodes=nodes, tokenizer=tk,
+    if split_type == 1:
+        nodes_ = get_leaf_nodes(nodes)
+        print("叶子节点数量:", len(nodes_))
+        docstore = SimpleDocumentStore()
+        docstore.add_documents(nodes)
+        storage_context = StorageContext.from_defaults(docstore=docstore)
+    elif split_type == 0:
+        nodes_ = nodes
+    sparse_retriever = BM25Retriever.from_defaults(nodes=nodes_, tokenizer=tk,
                                                    similarity_top_k=f_topk_2, stopwords=stp_words)
+    if split_type == 1:
+        sparse_retriever = AutoMergingRetriever(
+            sparse_retriever,
+            storage_context,
+            simple_ratio_thresh=0.5,
+        )
     print("创建BM25稀疏检索器成功")
 
     if retrieval_type == 1:

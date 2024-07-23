@@ -1,5 +1,7 @@
 from typing import List, Dict, Any
 
+from llama_index.core.node_parser import HierarchicalNodeParser
+
 from ..custom.transformation import CustomFilePathExtractor, CustomTitleExtractor
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.embeddings import BaseEmbedding
@@ -7,6 +9,7 @@ from llama_index.core.extractors import BaseExtractor
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.llms.llm import LLM
 from ..custom.splitter import SentenceSplitter
+from ..custom.hierarchical import HierarchicalNodeParser
 from llama_index.core.schema import Document, MetadataMode, TransformComponent
 from llama_index.core.vector_stores.types import BasePydanticVectorStore, MetadataFilters, MetadataFilter
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -46,9 +49,17 @@ def build_preprocess(
         data_path=None,
         chunk_size=1024,
         chunk_overlap=50,
+        split_type=0,  # 0-->Sentence 1-->Hierarchical
 ) -> List[TransformComponent]:
+    if split_type == 0:
+        parser = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    else:
+        parser = HierarchicalNodeParser.from_defaults(
+            chunk_sizes=[chunk_size * 4, chunk_size],
+            chunk_overlap=chunk_overlap,
+        )
     transformation = [
-        SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap),
+        parser,
         CustomTitleExtractor(metadata_mode=MetadataMode.EMBED),
         CustomFilePathExtractor(last_path_length=100000, metadata_mode=MetadataMode.EMBED),
         MyExtractor(data_path=data_path),
@@ -60,11 +71,13 @@ def build_preprocess_pipeline(
         data_path=None,
         chunk_size=1024,
         chunk_overlap=50,
+        split_type=0,
 ) -> IngestionPipeline:
     transformation = build_preprocess(
         data_path,
         chunk_size,
         chunk_overlap,
+        split_type=split_type,
     )
     return IngestionPipeline(transformations=transformation)
 

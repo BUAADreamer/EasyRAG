@@ -1,3 +1,5 @@
+import time
+
 from ..custom.template import QA_TEMPLATE
 from llama_index.core import (
     QueryBundle,
