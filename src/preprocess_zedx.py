@@ -1,10 +1,8 @@
-"""
-本文件用于处理.zedx压缩包文档解压后的东西
-"""
 import os
 from xml.etree import ElementTree
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+import html2text
 
 def dfs_tree(url2path: dict, node, parents: tuple):
     for child in node:
@@ -14,6 +12,28 @@ def dfs_tree(url2path: dict, node, parents: tuple):
         url2path[url] = sub_parents
         dfs_tree(url2path, child, sub_parents)
 
+def process_hmtl(html_doc):
+    soup = BeautifulSoup(html_doc, "html.parser")
+
+        # 找到所有class为"xref gxref"的span元素，对zedx缩略语进行补充
+    for span in soup.find_all("span", class_="xref gxref"):
+        title = span.get("title")
+        if title:
+            try:
+                en, cn = title.split("--")
+                span.string = f"{span.string}({en}, {cn})"
+            except:
+                span.string = f"{span.string}({title})"
+                print('error')
+
+    html = str(soup)
+    h = html2text.HTML2Text()
+    h.ignore_links = True
+    h.ignore_images = True
+    h.body_width = 0
+    text = h.handle(html)
+    return text
+
 def load_content(meta_dir, url):
     load_path = os.path.join(meta_dir, 'documents', url)
     if os.path.exists(load_path):
@@ -21,10 +41,11 @@ def load_content(meta_dir, url):
             html_doc = open(load_path, 'r', encoding='utf-8').read()
         except:
             html_doc = open(load_path, 'r', encoding='gb2312').read()
-        soup = BeautifulSoup(html_doc, 'lxml')
-        texts = soup.find_all(string=True)
-        all_text = '\n'.join(texts)
-        return all_text
+        # soup = BeautifulSoup(html_doc, 'lxml')
+        # texts = soup.find_all(string=True)
+        # all_text = '\n'.join(texts)
+        # return all_text
+        return process_hmtl(html_doc)
     else:
         print('文档不存在: ', load_path)
         return None
@@ -38,11 +59,13 @@ def format_content(content, path):
         last_line = line
         line = line.strip()
         if line.startswith('html'):
+            print('start with html')
             continue
         if line:
             new_content.append(line)
-    new_str = '###\n'
-    if path:
+    new_str = ''
+    if args.without_path is False:
+        new_str += '###\n'
         new_str += '文档路径: ' + '/'.join(path) + '\n\n'
     
     if new_content:
@@ -69,7 +92,7 @@ def fill_document(meta_dir, build_data_dir, url2path):
             print('未知的url后缀: ', url)
 
 def process_package(package_name):
-    meta_dir = os.path.join(base_origin_dir, package_name)
+    meta_dir = os.path.join(base_meta_dir, package_name)
     build_data_dir = os.path.join(base_processed_data_dir, package_name)
     os.makedirs(build_data_dir, exist_ok=True)
     
@@ -83,12 +106,16 @@ def process_package(package_name):
     
 
 if __name__ == '__main__':
-    base_origin_dir = '/data/origin_data'
-    base_processed_data_dir = '/home/zhangrichong/data/fengzc/rag/wzy_rag/RAG-AIOps/data/new_build_data'
+    import argparse
+    parse = argparse.ArgumentParser()
+    parse.add_argument('--without_path', action='store_true', default=False)
+    args = parse.parse_args()
+    print('without_path: ', args.without_path)
+    # exit()
+
+    base_meta_dir = './data/meta'
+    base_processed_data_dir = './data/format_data_without_path'
     package_list = ['director', 'emsplus', 'rcp', 'umac']
     for package_name in package_list:
         process_package(package_name)
-
-
-    
     
