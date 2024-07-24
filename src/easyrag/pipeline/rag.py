@@ -32,6 +32,7 @@ async def generation(llm, fmt_qa_prompt):
             print(e)
             cnt += 1
             if cnt >= 10:
+                print(f"已达到最大生成次数{cnt}次，返回'无法确定'")
                 return CompletionResponse(text="无法确定")
             print(f"已重复生成{cnt}次")
 

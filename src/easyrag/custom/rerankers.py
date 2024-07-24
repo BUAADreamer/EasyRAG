@@ -7,6 +7,7 @@ from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.core.schema import MetadataMode, NodeWithScore, QueryBundle
 from llama_index.core.utils import infer_torch_device
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from ..pipeline.ingestion import get_node_content
 
 DEFAULT_SENTENCE_TRANSFORMER_MAX_LENGTH = 512
 
@@ -221,7 +222,7 @@ class LLMRerank(BaseNodePostprocessor):
             query_and_nodes = [
                 (
                     query_bundle.query_str,
-                    node.node.get_content(metadata_mode=MetadataMode.NONE),
+                    get_node_content(node.node, 0),
                 )
                 for node in cur_nodes
             ]

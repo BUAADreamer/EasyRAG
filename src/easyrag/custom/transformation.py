@@ -1,4 +1,6 @@
-from typing import Sequence
+import json
+import os.path
+from typing import Sequence, Any, List, Dict
 
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.schema import BaseNode
@@ -6,20 +8,29 @@ from llama_index.core.schema import BaseNode
 
 class CustomFilePathExtractor(BaseExtractor):
     last_path_length: int = 4
+    data_path: str
 
-    def __init__(self, last_path_length: int = 4, **kwargs):
-        super().__init__(last_path_length=last_path_length, **kwargs)
+    def __init__(self, last_path_length: int = 4, data_path: str = "", **kwargs):
+        super().__init__(
+            last_path_length=last_path_length,
+            data_path=data_path,
+            **kwargs
+        )
 
     @classmethod
     def class_name(cls) -> str:
         return "CustomFilePathExtractor"
 
     async def aextract(self, nodes: Sequence[BaseNode]) -> list[dict]:
+        with open(os.path.join(self.data_path, "pathmap.json")) as f:
+            pathmap = json.loads(f.read())
         metadata_list = []
         for node in nodes:
-            node.metadata["file_path"] = "/".join(
-                node.metadata["file_path"].split("/")[-self.last_path_length:]
-            )
+            node.metadata["file_abs_path"] = node.metadata['file_path']
+            file_path = node.metadata["file_path"].replace(self.data_path + "/", "")
+            node.metadata["dir"] = file_path.split("/")[0]
+            node.metadata["file_path"] = file_path
+            node.metadata["know_path"] = pathmap[file_path]
             metadata_list.append(node.metadata)
         return metadata_list
 

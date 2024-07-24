@@ -56,6 +56,9 @@ async def main(
         f_topk_2=192,  # sparse 粗排topk
         rerank_fusion=0,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果 3-->两路生成结果拼接
         split_type=0,  # 0-->Sentence 1-->Hierarchical
+        chunk_size=960,
+        chunk_overlap=200,
+        data_path="/home/zhangrichong/data/fengzc/rag/RAG-SemiFinal-Prepare/data/format_data",
 ):
     # 打印参数
     print("note:", note)
@@ -68,6 +71,9 @@ async def main(
     print("r_topk:", r_topk)
     print("r_topk_1:", r_topk_1)
     print("split_type:", split_type)
+    print("chunk_size:", chunk_size)
+    print("chunk_overlap:", chunk_overlap)
+    print("data_path:", data_path)
 
     config = dotenv_values(".env")
     config['DATA_PATH'] = os.path.abspath(config['DATA_PATH'])
@@ -96,9 +102,9 @@ async def main(
         embedding = None
     Settings.embed_model = embedding
 
-    data_path = config.get("DATA_PATH")
-    chunk_size = int(config.get("CHUNK_SIZE", 1024))
-    chunk_overlap = int(config.get("CHUNK_OVERLAP", 50))
+    data_path = os.path.abspath(data_path)
+    chunk_size = int(chunk_size)
+    chunk_overlap = int(chunk_overlap)
     data = read_data(data_path)
     print(f"文档读入完成，一共有{len(data)}个文档")
     vector_store = None
@@ -157,7 +163,7 @@ async def main(
         sparse_retriever = AutoMergingRetriever(
             sparse_retriever,
             storage_context,
-            simple_ratio_thresh=0.5,
+            simple_ratio_thresh=0.4,
         )
     print("创建BM25稀疏检索器成功")
 

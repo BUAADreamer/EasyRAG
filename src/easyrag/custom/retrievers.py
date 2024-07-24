@@ -11,6 +11,7 @@ from llama_index.core.schema import NodeWithScore, BaseNode, IndexNode
 from llama_index.core.storage.docstore import BaseDocumentStore
 from llama_index.core.vector_stores import VectorStoreQuery
 from llama_index.vector_stores.qdrant import QdrantVectorStore
+from ..pipeline.ingestion import get_node_content
 from nltk import PorterStemmer
 from rank_bm25 import BM25Okapi
 
@@ -90,7 +91,7 @@ class BM25Retriever(BaseRetriever):
         self._tokenizer = tokenizer
         self._similarity_top_k = similarity_top_k
         self._corpus = [tokenize_and_remove_stopwords(
-            self._tokenizer, node.get_content(), stopwords=stopwords)
+            self._tokenizer, get_node_content(node, 1), stopwords=stopwords)
             for node in self._nodes]
         # self._corpus = [self._tokenizer(node.get_content()) for node in self._nodes]
         self.bm25 = BM25Okapi(self._corpus)
