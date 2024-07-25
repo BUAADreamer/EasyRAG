@@ -1,24 +1,24 @@
 import json
 import os
+import shutil
 from xml.etree import ElementTree
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 import html2text
-
+import urllib.parse
 
 def dfs_tree(url2path: dict, node, parents: tuple):
     for child in node:
-        sub_parents = parents + (child.get('name'),)
+        sub_parents = parents + (child.get('name'), )
         url = child.get('url')
         url = url.replace('\\', '/')
         url2path[url] = sub_parents
         dfs_tree(url2path, child, sub_parents)
 
-
-def process_hmtl(html_doc):
+def process_hmtl(html_doc, meta_dir, build_data_dir, url):
     soup = BeautifulSoup(html_doc, "html.parser")
 
-    # 找到所有class为"xref gxref"的span元素，对zedx缩略语进行补充
+        # 找到所有class为"xref gxref"的span元素，对zedx缩略语进行补充
     for span in soup.find_all("span", class_="xref gxref"):
         title = span.get("title")
         if title:
@@ -28,6 +28,34 @@ def process_hmtl(html_doc):
             except:
                 span.string = f"{span.string}({title})"
                 print('error')
+    
+    for figure in soup.find_all("figure", class_="fig fig_ fignone"):
+        figure_title = figure.find('span').string
+        if not figure_title.startswith('图'):
+            print('没有图片标题:', figure)
+        else:
+            figure_title = figure_title.strip()
+            # print('图片标题是: ', figure_title)
+            # import ipdb
+            # ipdb.set_trace()
+            try:
+                figure_path = figure.find('img')['src']
+                try:
+                    figure_path = urllib.parse.unquote(figure_path)
+                except:
+                    import traceback
+                    traceback.print_exc()
+            except:
+                continue
+            
+            dir_path = os.path.dirname(url)
+            ori_img_dir = os.path.join(meta_dir, 'documents', dir_path, 'images')
+            img_path = os.path.join(package_name, dir_path, figure_path)
+            filepath2imgpath_dict.setdefault(os.path.join(package_name, url), {})[figure_title] = img_path
+
+            img_dir = os.path.join(build_data_dir, dir_path, 'images')
+            if not os.path.exists(img_dir) and os.path.exists(ori_img_dir):
+                shutil.copytree(ori_img_dir, img_dir)
 
     html = str(soup)
     h = html2text.HTML2Text()
@@ -35,10 +63,10 @@ def process_hmtl(html_doc):
     h.ignore_images = True
     h.body_width = 0
     text = h.handle(html)
+
     return text
 
-
-def load_content(meta_dir, url):
+def load_content(meta_dir, build_data_dir, url):
     load_path = os.path.join(meta_dir, 'documents', url)
     if os.path.exists(load_path):
         try:
@@ -49,11 +77,10 @@ def load_content(meta_dir, url):
         # texts = soup.find_all(string=True)
         # all_text = '\n'.join(texts)
         # return all_text
-        return process_hmtl(html_doc)
+        return process_hmtl(html_doc, meta_dir, build_data_dir, url)
     else:
         print('文档不存在: ', load_path)
         return None
-
 
 def format_content(content, path):
     new_content = []
@@ -84,7 +111,7 @@ def format_content(content, path):
 def fill_document(meta_dir, build_data_dir, url2path):
     filepath_2_knowpath_ = dict()
     for url, path in tqdm(url2path.items()):
-        content = load_content(meta_dir, url)
+        content = load_content(meta_dir, build_data_dir, url)
         if content is None:
             continue
         if url.endswith('.html') or url.endswith('.htm'):
@@ -123,11 +150,15 @@ if __name__ == '__main__':
     args = parse.parse_args()
     print('with_path: ', args.with_path)
     # exit()
+
     base_meta_dir = '/home/zhangrichong/data/fengzc/rag/wzy_rag/RAG-AIOps/data/meta'
-    base_processed_data_dir = '../data/format_data'
+    base_processed_data_dir = './data/format_data_with_img'
     filepath_2_knowpath = dict()
+    filepath2imgpath_dict = dict()
     package_list = ['director', 'emsplus', 'rcp', 'umac']
     for package_name in package_list:
         process_package(package_name)
+    with open(os.path.join(base_processed_data_dir, "imgmap.json"), 'w') as f:
+        f.write(json.dumps(filepath2imgpath_dict, ensure_ascii=False, indent=4))
     with open(os.path.join(base_processed_data_dir, "pathmap.json"), 'w') as f:
         f.write(json.dumps(filepath_2_knowpath, ensure_ascii=False, indent=4))
