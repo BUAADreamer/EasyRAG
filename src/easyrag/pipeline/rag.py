@@ -10,6 +10,7 @@ from llama_index.core.llms.llm import LLM
 from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.core.retrievers import BaseRetriever
 from ..custom.retrievers import HybridRetriever
+from .ingestion import get_node_content
 
 
 def filter_specfic_words(prompt):
@@ -56,7 +57,7 @@ async def generation_with_knowledge_retrieval(
         if debug:
             print(f"reranked:\n{node_with_scores}\n------")
     context_str = "\n\n".join(
-        [f"### 文档{i}: {node.text}" for i, node in enumerate(node_with_scores)]
+        [f"### 文档{i}: {get_node_content(node, 0)}" for i, node in enumerate(node_with_scores)]
     )
 
     if re_only:

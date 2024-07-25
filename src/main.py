@@ -59,6 +59,8 @@ async def main(
         chunk_size=960,
         chunk_overlap=200,
         data_path="/home/zhangrichong/data/fengzc/rag/RAG-SemiFinal-Prepare/data/format_data",
+        f_embed_type=2,
+        r_embed_type=1,
 ):
     # 打印参数
     print("note:", note)
@@ -157,8 +159,13 @@ async def main(
         storage_context = StorageContext.from_defaults(docstore=docstore)
     elif split_type == 0:
         nodes_ = nodes
-    sparse_retriever = BM25Retriever.from_defaults(nodes=nodes_, tokenizer=tk,
-                                                   similarity_top_k=f_topk_2, stopwords=stp_words)
+    sparse_retriever = BM25Retriever.from_defaults(
+        nodes=nodes_,
+        tokenizer=tk,
+        similarity_top_k=f_topk_2,
+        stopwords=stp_words,
+        embed_type=f_embed_type,
+    )
     if split_type == 1:
         sparse_retriever = AutoMergingRetriever(
             sparse_retriever,
@@ -192,6 +199,7 @@ async def main(
             top_n=r_topk,
             model=config["RERANKER_NAME"],
             embed_bs=32,  # 控制重排器批大小，减小显存占用
+            embed_type=r_embed_type,
         )
         print(f"创建{config['RERANKER_NAME']}LLM重排器成功")
 

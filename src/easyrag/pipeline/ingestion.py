@@ -21,6 +21,8 @@ def get_node_content(node, embed_type=0) -> str:
     text = node.get_content()
     if embed_type == 1:
         text = '###\n' + node.metadata['file_path'] + "\n\n" + text
+    elif embed_type == 2:
+        text = '###\n' + node.metadata['know_path'] + "\n\n" + text
     return text
 
 

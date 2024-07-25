@@ -1,13 +1,11 @@
-from openai import OpenAI
 from zhipuai import ZhipuAI
-
+import base64
 from ..config import GLM_KEY
+
+client = ZhipuAI(api_key=GLM_KEY)
 
 
 def zhipu_generate(text, model="glm-4", system=""):
-    if model == '':
-        model = "glm-4"
-    client = ZhipuAI(api_key=GLM_KEY)
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
@@ -20,21 +18,38 @@ def zhipu_generate(text, model="glm-4", system=""):
     return response.choices[0].message.content
 
 
-def openai_generate(text, model, system=""):
-    client = OpenAI(
-        # This is the default and can be omitted
-        api_key="sk-X7Zbbb2bb1bdce35f10f991e70155dc66984ac21d1102tvb",
-        base_url="https://api.gptsapi.net/v1",  # https://help.bewildcard.com/zh-CN/articles/9121334-wildcard-api-使用教程
-    )
-    if model == '':
-        model = "gpt-3.5-turbo"
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+
+def zhipu_generate_vision(image_path, prompt, model="glm-4v", system=""):
+    content = [
+        {"type": "text", "text": prompt},
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{encode_image(image_path)}"
+            }
+        },
+    ]
+    reply = zhipu_chat_vision(content, model, system)
+    return reply
+
+
+# vision:https://platform.openai.com/docs/guides/vision
+def zhipu_chat_vision(content: list, model="glm-4v", system=""):
     messages = []
     if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": text})
+        messages.append({"role": "system", "content": [{"type": "text", "text": system}]})
+    messages.append({"role": "user", "content": content})
     response = client.chat.completions.create(
         model=model,
         messages=messages,
+        top_p=0.7,
+        temperature=0.95,
+        max_tokens=1024,
     )
+    print(response)
     reply = response.choices[0].message.content
     return reply

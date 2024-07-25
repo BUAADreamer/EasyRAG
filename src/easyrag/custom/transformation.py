@@ -22,15 +22,27 @@ class CustomFilePathExtractor(BaseExtractor):
         return "CustomFilePathExtractor"
 
     async def aextract(self, nodes: Sequence[BaseNode]) -> list[dict]:
-        with open(os.path.join(self.data_path, "pathmap.json")) as f:
-            pathmap = json.loads(f.read())
+        pathmap_file = os.path.join(self.data_path, "pathmap.json")
+        if os.path.exists(pathmap_file):
+            with open(pathmap_file) as f:
+                pathmap = json.loads(f.read())
+        else:
+            pathmap = None
+        imgmap_file = os.path.join(self.data_path, "imgmap.json")
+        if os.path.exists(imgmap_file):
+            with open(imgmap_file) as f:
+                imgmap = json.loads(f.read())
+        else:
+            imgmap = None
         metadata_list = []
         for node in nodes:
             node.metadata["file_abs_path"] = node.metadata['file_path']
             file_path = node.metadata["file_path"].replace(self.data_path + "/", "")
             node.metadata["dir"] = file_path.split("/")[0]
             node.metadata["file_path"] = file_path
-            node.metadata["know_path"] = pathmap[file_path]
+            if pathmap is not None:
+                node.metadata["know_path"] = "/".join(pathmap[file_path])
+
             metadata_list.append(node.metadata)
         return metadata_list
 

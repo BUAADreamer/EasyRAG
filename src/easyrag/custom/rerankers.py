@@ -118,6 +118,7 @@ class LLMRerank(BaseNodePostprocessor):
     _yes_loc: Any = PrivateAttr()
     _layer: int = PrivateAttr()
     _embed_bs: int = PrivateAttr()
+    _embed_type: int = PrivateAttr()
 
     def __init__(
             self,
@@ -125,12 +126,14 @@ class LLMRerank(BaseNodePostprocessor):
             model: str = "BAAI/bge-reranker-v2-minicpm-layerwise",
             device: Optional[str] = None,
             keep_retrieval_score: Optional[bool] = False,
-            embed_bs: int = 64
+            embed_bs: int = 64,
+            embed_type: int = 0,
     ):
         device = infer_torch_device() if device is None else device
 
         self._tokenizer = AutoTokenizer.from_pretrained(model)
         self._yes_loc = self._tokenizer('Yes', add_special_tokens=False)['input_ids'][0]
+        self._embed_type = embed_type
         if "bge-reranker-v2-minicpm-layerwise" in model:
             from ..utils.modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
             self._model = LayerWiseMiniCPMForCausalLM.from_pretrained(
@@ -222,7 +225,7 @@ class LLMRerank(BaseNodePostprocessor):
             query_and_nodes = [
                 (
                     query_bundle.query_str,
-                    get_node_content(node.node, 0),
+                    get_node_content(node.node, self._embed_type),
                 )
                 for node in cur_nodes
             ]

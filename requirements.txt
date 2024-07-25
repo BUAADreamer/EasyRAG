@@ -107,3 +107,6 @@ fire==0.6.0
 accelerate==0.31.0
 lxml==5.2.2
 html2text==2024.2.26
+paddlepaddle-gpu==2.6.0
+paddleocr==2.7.0.3
+torchvision=0.18.0

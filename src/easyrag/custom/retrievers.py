@@ -85,13 +85,15 @@ class BM25Retriever(BaseRetriever):
             objects: Optional[List[IndexNode]] = None,
             object_map: Optional[dict] = None,
             verbose: bool = False,
-            stopwords: List[str] = [""]
+            stopwords: List[str] = [""],
+            embed_type: int = 0,
     ) -> None:
         self._nodes = nodes
         self._tokenizer = tokenizer
         self._similarity_top_k = similarity_top_k
+        self.embed_type = embed_type
         self._corpus = [tokenize_and_remove_stopwords(
-            self._tokenizer, get_node_content(node, 1), stopwords=stopwords)
+            self._tokenizer, get_node_content(node, self.embed_type), stopwords=stopwords)
             for node in self._nodes]
         # self._corpus = [self._tokenizer(node.get_content()) for node in self._nodes]
         self.bm25 = BM25Okapi(self._corpus)
@@ -113,7 +115,8 @@ class BM25Retriever(BaseRetriever):
             tokenizer: Optional[Callable[[str], List[str]]] = None,
             similarity_top_k: int = DEFAULT_SIMILARITY_TOP_K,
             verbose: bool = False,
-            stopwords: List[str] = [""]
+            stopwords: List[str] = [""],
+            embed_type: int = 0,
     ) -> "BM25Retriever":
         # ensure only one of index, nodes, or docstore is passed
         if sum(bool(val) for val in [index, nodes, docstore]) != 1:
@@ -135,7 +138,8 @@ class BM25Retriever(BaseRetriever):
             tokenizer=tokenizer,
             similarity_top_k=similarity_top_k,
             verbose=verbose,
-            stopwords=stopwords
+            stopwords=stopwords,
+            embed_type=embed_type,
         )
 
     def filter(self, scores):
