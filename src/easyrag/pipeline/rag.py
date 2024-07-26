@@ -47,6 +47,7 @@ async def generation_with_knowledge_retrieval(
         debug: bool = False,
         progress=None,
         re_only: bool = False,
+        llm_embed_type: int = 0,
 ):
     query_bundle = QueryBundle(query_str=query_str)
     node_with_scores = await retriever.aretrieve(query_bundle)
@@ -57,7 +58,7 @@ async def generation_with_knowledge_retrieval(
         if debug:
             print(f"reranked:\n{node_with_scores}\n------")
     context_str = "\n\n".join(
-        [f"### 文档{i}: {get_node_content(node, 0)}" for i, node in enumerate(node_with_scores)]
+        [f"### 文档{i}: {get_node_content(node, llm_embed_type)}" for i, node in enumerate(node_with_scores)]
     )
 
     if re_only:

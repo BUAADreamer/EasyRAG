@@ -1,9 +1,32 @@
 import json
 import os.path
+import re
 from typing import Sequence, Any, List, Dict
 
 from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.schema import BaseNode
+
+
+def filter_image(cap, title, text):
+    # 过滤text中含有特殊内容的node
+    ignore_words = [
+        "流程", "，", "示例", "配置", "组网图", "（可选）", "文件"
+    ]
+    ignore_sentences = [f'{ignore_word}如{cap}所示' for ignore_word in ignore_words]
+    for ignore_sentence in ignore_sentences:
+        if ignore_sentence in text:
+            return True
+    # 过滤title中含有特殊内容的node
+    ignore_words = ["架构", "结构", "组网图", "页面", "对话框"]
+    for ignore_word in ignore_words:
+        if ignore_word in title:
+            return True
+    # 过滤不含有某个模式的node
+    contains_sentences = [f'如{cap}所示']
+    for contains_sentence in contains_sentences:
+        if contains_sentence not in text:
+            return True
+    return False
 
 
 class CustomFilePathExtractor(BaseExtractor):
@@ -28,7 +51,7 @@ class CustomFilePathExtractor(BaseExtractor):
                 pathmap = json.loads(f.read())
         else:
             pathmap = None
-        imgmap_file = os.path.join(self.data_path, "imgmap.json")
+        imgmap_file = os.path.join(self.data_path, "imgmap_filtered.json")
         if os.path.exists(imgmap_file):
             with open(imgmap_file) as f:
                 imgmap = json.loads(f.read())
@@ -42,7 +65,19 @@ class CustomFilePathExtractor(BaseExtractor):
             node.metadata["file_path"] = file_path
             if pathmap is not None:
                 node.metadata["know_path"] = "/".join(pathmap[file_path])
-
+            if imgmap is not None:
+                if file_path in imgmap:
+                    cap2imgobj = imgmap[file_path]
+                    imgobjs = []
+                    for cap in cap2imgobj:
+                        imgobj = cap2imgobj[cap]
+                        title = imgobj['title']
+                        content = imgobj['content']
+                        if filter_image(cap, title, content):
+                            continue
+                        imgobj['cap'] = cap
+                        imgobjs.append(imgobj)
+                    node.metadata['imgobjs'] = imgobjs
             metadata_list.append(node.metadata)
         return metadata_list
 

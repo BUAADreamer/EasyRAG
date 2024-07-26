@@ -6,12 +6,12 @@ from llama_index.core.storage.docstore import SimpleDocumentStore
 
 os.environ['NLTK_DATA'] = './data/nltk_data/'
 
-from easyrag.custom.embeddings import GTEEmbedding
 from submit import submit
 import fire
 from dotenv import dotenv_values
 from llama_index.core import Settings, StorageContext
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from easyrag.custom.embeddings.hf_embeddings import HuggingFaceEmbedding
+from easyrag.custom.embeddings.gte_embeddings import GTEEmbedding
 from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
 from tqdm.asyncio import tqdm
@@ -56,11 +56,12 @@ async def main(
         f_topk_2=192,  # sparse 粗排topk
         rerank_fusion=0,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果 3-->两路生成结果拼接
         split_type=0,  # 0-->Sentence 1-->Hierarchical
-        chunk_size=960,
+        chunk_size=1024,
         chunk_overlap=200,
-        data_path="/home/zhangrichong/data/fengzc/rag/RAG-SemiFinal-Prepare/data/format_data",
+        data_path="/home/zhangrichong/data/fengzc/rag/RAG-SemiFinal-Prepare/data/format_data_with_img",
         f_embed_type=2,
         r_embed_type=1,
+        llm_embed_type=0,
 ):
     # 打印参数
     print("note:", note)
@@ -92,12 +93,14 @@ async def main(
             embedding = GTEEmbedding(
                 model_name=embedding_name,
                 embed_batch_size=128,
+                embed_type=f_embed_type,
             )
         else:
             embedding = HuggingFaceEmbedding(
                 model_name=embedding_name,
                 cache_folder=config.get("HFMODEL_CACHE_FOLDER"),
                 embed_batch_size=128,
+                embed_type=f_embed_type,
                 # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
             )
     else:
@@ -233,6 +236,7 @@ async def main(
                 llm=llm,
                 re_only=re_only,
                 reranker=reranker,
+                llm_embed_type=llm_embed_type,
             )
         else:
             # 两路粗排-精排 + 精排后fusion
@@ -293,10 +297,11 @@ async def main(
 
     # 保存中间结果
     if save_inter:
+        from easyrag.pipeline.ingestion import get_node_content
         print("保存中间结果...")
         inter_res_list = []
         for query, answer, documents in tqdm(zip(queries, answers, docs)):
-            contexts = [f"{doc.metadata['document_title']}: {doc.text}" for doc in documents]
+            contexts = [f"{get_node_content(doc, llm_embed_type)}" for doc in documents]
             paths = [doc.metadata['file_path'] for doc in documents]
             inter_res = {
                 "id": query['id'],

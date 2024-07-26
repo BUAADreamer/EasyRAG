@@ -10,8 +10,9 @@ from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.schema import BaseNode, MetadataMode
 from llama_index.core.utils import infer_torch_device
 from torch import Tensor
-from ..utils.modeling_qwen import Qwen2Model
-from ..utils.tokenization_qwen import Qwen2Tokenizer
+from ...utils.modeling_qwen import Qwen2Model
+from ...utils.tokenization_qwen import Qwen2Tokenizer
+from ...pipeline.ingestion import get_node_content
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +21,12 @@ class GTEEmbedding(BaseEmbedding):
     _model: Any = PrivateAttr()
     _tokenizer: Any = PrivateAttr()
     _device: str = PrivateAttr()
+    _embed_type: int = PrivateAttr()
 
     def __init__(
             self,
             model_name: str = None,
+            embed_type: int = 0,
             **kwargs: Any,
     ) -> None:
         self._device = infer_torch_device()
@@ -31,6 +34,7 @@ class GTEEmbedding(BaseEmbedding):
         self._model = Qwen2Model.from_pretrained(model_name, trust_remote_code=True, torch_dtype=torch.bfloat16).to(
             self._device)
         self._model.eval()
+        self._embed_type = embed_type
         super().__init__(**kwargs)
 
     def last_token_pool(self, last_hidden_states: Tensor,
@@ -85,7 +89,7 @@ class GTEEmbedding(BaseEmbedding):
 
     def __call__(self, nodes: List[BaseNode], **kwargs: Any) -> List[BaseNode]:
         embeddings = self.get_text_embedding_batch(
-            [node.get_content(metadata_mode=MetadataMode.NONE) for node in nodes],
+            [get_node_content(node, self._embed_type) for node in nodes],
             **kwargs,
         )
 
@@ -96,7 +100,7 @@ class GTEEmbedding(BaseEmbedding):
 
     async def acall(self, nodes: List[BaseNode], **kwargs: Any) -> List[BaseNode]:
         embeddings = await self.aget_text_embedding_batch(
-            [node.get_content(metadata_mode=MetadataMode.NONE) for node in nodes],
+            [get_node_content(node, self._embed_type) for node in nodes],
             **kwargs,
         )
 

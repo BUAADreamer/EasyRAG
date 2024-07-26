@@ -23,6 +23,10 @@ def get_node_content(node, embed_type=0) -> str:
         text = '###\n' + node.metadata['file_path'] + "\n\n" + text
     elif embed_type == 2:
         text = '###\n' + node.metadata['know_path'] + "\n\n" + text
+    elif embed_type == 3:
+        if "imgobjs" in node.metadata and len(node.metadata['imgobjs']) > 0:
+            for imgobj in node.metadata['imgobjs']:
+                text = text.replace(f"{imgobj['cap']} {imgobj['title']}\n", f"{imgobj['cap']} {imgobj['title']}:{imgobj['content']}\n")
     return text
 
 
@@ -102,9 +106,9 @@ async def build_vector_store(
         config: dict, reindex: bool = False
 ) -> tuple[AsyncQdrantClient, QdrantVectorStore]:
     client = AsyncQdrantClient(
-        # url=config["QDRANT_URL"],
+        url=config["QDRANT_URL"],
         # location=":memory:",
-        path=config['cache_path'],
+        # path=config['cache_path'],
     )
     if reindex:
         try:
