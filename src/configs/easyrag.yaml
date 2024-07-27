@@ -1,0 +1,43 @@
+# 粗排参数
+re_only: false  # 只检索，用于调试检索
+retrieval_type: 2 # 0-->密集 1-->稀疏 2-->混合
+f_topk: 256 # 仅用于混合检索器最终的fusion数量
+f_topk_1: 288 # 密集检索粗排topk
+f_topk_2: 192 # 稀疏检索粗排topk
+
+# 密集检索器参数
+reindex: false  # 是否从头开始构建索引
+embedding_name: ../../models/gte-Qwen2-7B-instruct
+vector_size: 3584
+cache_path: "cache" # 用于qdrant 硬盘存储调试
+collection_name: "aiops24" # qdrant collection名字
+
+# 重排器参数
+r_topk: 6 # 精排topk
+r_topk_1: 6 # 精排后Fusion的topk
+rerank_fusion_type: 0 # 0-->不使用精排后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果 3-->两路生成结果拼接
+reranker_name: ../../models/bge-reranker-v2-minicpm-layerwise
+use_reranker: 2 # 0-->不使用 1-->ST的普通Reranker 2-->bge LLM Reranker
+
+# 生成参数
+llm_keys: [
+  "4f3c198f8bcbfa81e2ef9fbea428d9d8.DGBE51vKXQP65ceE",
+  "5cc7a7b7edad616a8e8a02fe3073426a.B2LhU3ZIlhgkRzPM"
+]
+llm_name: "glm-4"
+llm_embed_type: 3 # 最终的上下文文档编码参数
+
+# 文本排序编码方式
+f_embed_type_1: 1 # 密集检索的文档编码方式
+f_embed_type_2: 2 # 稀疏检索的文档编码方式
+r_embed_type: 1 # 重排的文档编码方式
+
+# 分块策略
+split_type: 0 # 0-->Sentence 1-->Hierarchical
+chunk_size: 1024
+chunk_overlap: 200
+
+# 路径参数
+data_path: "/home/zhangrichong/data/fengzc/rag/RAG-SemiFinal-Prepare/data/format_data_with_img"
+hfmodel_cache_folder: "/home/zhangrichong/data/hf_cache/hub"
+qdrant_url: "http://localhost:6333"

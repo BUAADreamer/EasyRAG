@@ -145,31 +145,39 @@ def build_pipeline(
 
 
 async def build_vector_store(
-        config: dict, reindex: bool = False
+        qdrant_url: str = "http://localhost:6333",
+        cache_path: str = "cache",
+        reindex: bool = False,
+        collection_name: str = "aiops24",
+        vector_size: int = 3584,
 ) -> tuple[AsyncQdrantClient, QdrantVectorStore]:
-    client = AsyncQdrantClient(
-        url=config["QDRANT_URL"],
-        # location=":memory:",
-        # path=config['cache_path'],
-    )
+    if qdrant_url:
+        client = AsyncQdrantClient(
+            url=qdrant_url,
+        )
+    else:
+        client = AsyncQdrantClient(
+            path=cache_path,
+        )
+
     if reindex:
         try:
-            await client.delete_collection(config["COLLECTION_NAME"])
+            await client.delete_collection(collection_name)
         except UnexpectedResponse as e:
             print(f"Collection not found: {e}")
 
     try:
         await client.create_collection(
-            collection_name=config["COLLECTION_NAME"],
+            collection_name=collection_name,
             vectors_config=models.VectorParams(
-                size=config["VECTOR_SIZE"] or 1024, distance=models.Distance.COSINE
+                size=vector_size, distance=models.Distance.COSINE
             ),
         )
     except Exception as e:
         print("集合已存在")
     return client, QdrantVectorStore(
         aclient=client,
-        collection_name=config["COLLECTION_NAME"],
+        collection_name=collection_name,
         parallel=4,
         batch_size=32,
     )

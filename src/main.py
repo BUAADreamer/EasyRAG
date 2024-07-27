@@ -1,34 +1,14 @@
 import json
 import os
-
-from llama_index.core.retrievers import AutoMergingRetriever
-from llama_index.core.storage.docstore import SimpleDocumentStore
+from easyrag.pipeline.pipeline import EasyRAGPipeline
 
 os.environ['NLTK_DATA'] = './data/nltk_data/'
 
 from submit import submit
 import fire
-from dotenv import dotenv_values
-from llama_index.core import Settings, StorageContext
-from easyrag.custom.embeddings.hf_embeddings import HuggingFaceEmbedding
-from easyrag.custom.embeddings.gte_embeddings import GTEEmbedding
-from llama_index.legacy.llms import OpenAILike as OpenAI
-from qdrant_client import models
 from tqdm.asyncio import tqdm
-from easyrag.pipeline.ingestion import build_pipeline, build_vector_store, read_data, build_qdrant_filters, \
-    build_preprocess_pipeline
 from easyrag.pipeline.qa import read_jsonl, save_answers
-from easyrag.pipeline.rag import generation_with_knowledge_retrieval, generation_with_rerank_fusion
-from easyrag.custom.retrievers import QdrantRetriever, HybridRetriever, BM25Retriever
-from easyrag.config import GLM_KEY
-from easyrag.custom.rerankers import SentenceTransformerRerank, LLMRerank
-from llama_index.core.node_parser import get_leaf_nodes
-
-
-def load_stopwords(path):
-    with open(path, 'r', encoding='utf-8') as file:
-        stopwords = set([line.strip() for line in file])
-    return stopwords
+from easyrag.utils import get_yaml_data
 
 
 def get_test_data(split="val"):
@@ -41,240 +21,37 @@ def get_test_data(split="val"):
 
 
 async def main(
+        re_only=False,
         split='test',  # 使用哪个集合
         push=False,  # 是否直接提交这次test结果
         save_inter=True,  # 是否保存检索结果等中间结果
         note="best",  # 中间结果保存路径的备注名字
-        reindex=False,  # 是否从头开始构建索引
-        re_only=False,  # 只检索，用于调试检索
-        retrieval_type=2,  # 粗排类型
-        use_reranker=2,  # 是否使用重排
-        f_topk=256,  # 粗排topk
-        r_topk=6,  # 精排topk
-        r_topk_1=6,  # 精排后再fusion的topk
-        f_topk_1=288,  # dense 粗排topk
-        f_topk_2=192,  # sparse 粗排topk
-        rerank_fusion=0,  # 0-->不需要rerank后fusion 1-->两路检索结果rrf 2-->生成长度最大的作为最终结果 3-->两路生成结果拼接
-        split_type=0,  # 0-->Sentence 1-->Hierarchical
-        chunk_size=1024,
-        chunk_overlap=200,
-        data_path="/home/zhangrichong/data/fengzc/rag/RAG-SemiFinal-Prepare/data/format_data_with_img",
-        f_embed_type_1=1,
-        f_embed_type_2=2,
-        r_embed_type=1,
-        llm_embed_type=0,
+        config_path="configs/easyrag.yaml",  # 配置文件
 ):
-    # 打印参数
-    print("note:", note)
-    print("retrieval_type:", retrieval_type)
-    print("use_reranker:", use_reranker)
-    print("rerank_fusion:", rerank_fusion)
-    print("f_topk:", f_topk)
-    print("f_topk_1:", f_topk_1)
-    print("f_topk_2:", f_topk_2)
-    print("r_topk:", r_topk)
-    print("r_topk_1:", r_topk_1)
-    print("split_type:", split_type)
-    print("chunk_size:", chunk_size)
-    print("chunk_overlap:", chunk_overlap)
-    print("data_path:", data_path)
-    print("f_embed_type_1:", f_embed_type_1)
-    print("f_embed_type_2:", f_embed_type_2)
-    print("r_embed_type:", r_embed_type)
-    print("llm_embed_type:", llm_embed_type)
+    # 读入配置文件
+    config = get_yaml_data(config_path)
+    config['re_only'] = re_only
+    for key in config:
+        print(f"{key}: {config[key]}")
 
-    config = dotenv_values(".env")
-    # 初始化 LLM 嵌入模型 和 Reranker
-    llm = OpenAI(
-        api_key=GLM_KEY,
-        model="glm-4",
-        api_base="https://open.bigmodel.cn/api/paas/v4/",
-        is_chat_model=True,
+    # 创建RAG流程
+    rag_pipeline = EasyRAGPipeline(
+        config
     )
-    embedding_name = config.get("EMBEDDING_NAME")
-    if retrieval_type != 2:
-        if "gte" in embedding_name \
-                or "Zhihui" in embedding_name:
-            embedding = GTEEmbedding(
-                model_name=embedding_name,
-                embed_batch_size=128,
-                embed_type=f_embed_type_1,
-            )
-        else:
-            embedding = HuggingFaceEmbedding(
-                model_name=embedding_name,
-                cache_folder=config.get("HFMODEL_CACHE_FOLDER"),
-                embed_batch_size=128,
-                embed_type=f_embed_type_1,
-                # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
-            )
-    else:
-        embedding = None
-    Settings.embed_model = embedding
-
-    data_path = os.path.abspath(data_path)
-    chunk_size = int(chunk_size)
-    chunk_overlap = int(chunk_overlap)
-    data = read_data(data_path)
-    print(f"文档读入完成，一共有{len(data)}个文档")
-    vector_store = None
-    if retrieval_type != 2:
-        # 初始化 数据ingestion pipeline 和 vector store
-        client, vector_store = await build_vector_store(config, reindex=reindex)
-
-        collection_info = await client.get_collection(
-            config["COLLECTION_NAME"]
-        )
-        if collection_info.points_count == 0:
-            pipeline = build_pipeline(
-                llm, embedding, vector_store=vector_store, data_path=data_path,
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-            )
-            # 暂时停止实时索引
-            await client.update_collection(
-                collection_name=config["COLLECTION_NAME"],
-                optimizer_config=models.OptimizersConfigDiff(indexing_threshold=0),
-            )
-            nodes = await pipeline.arun(documents=data, show_progress=True, num_workers=1)
-            # 恢复实时索引
-            await client.update_collection(
-                collection_name=config["COLLECTION_NAME"],
-                optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
-            )
-            print(f"索引建立完成，一共有{len(nodes)}个节点")
-    preprocess_pipeline = build_preprocess_pipeline(
-        data_path,
-        chunk_size,
-        chunk_overlap,
-        split_type,
-    )
-    nodes_ = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
-    print(f"索引已建立，一共有{len(nodes_)}个节点")
-
-    # 加载检索器
-    dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk_1)
-    print(f"创建{config['EMBEDDING_NAME']}密集检索器成功")
-
-    stp_words = load_stopwords("./data/hit_stopwords.txt")
-    import jieba
-    tk = jieba.Tokenizer()
-    if split_type == 1:
-        nodes = get_leaf_nodes(nodes_)
-        print("叶子节点数量:", len(nodes))
-        docstore = SimpleDocumentStore()
-        docstore.add_documents(nodes)
-        storage_context = StorageContext.from_defaults(docstore=docstore)
-    else:
-        nodes = nodes_
-    nodeid2idx = dict()
-    for i, node in enumerate(nodes):
-        nodeid2idx[node.node_id] = i
-    sparse_retriever = BM25Retriever.from_defaults(
-        nodes=nodes,
-        tokenizer=tk,
-        similarity_top_k=f_topk_2,
-        stopwords=stp_words,
-        embed_type=f_embed_type_2,
-    )
-    # path_retriever = BM25Retriever.from_defaults(
-    #     nodes=nodes,
-    #     tokenizer=tk,
-    #     similarity_top_k=192,
-    #     stopwords=stp_words,
-    #     embed_type=4,  # 4-->file_path 5-->know_path
-    # )
-    if split_type == 1:
-        sparse_retriever = AutoMergingRetriever(
-            sparse_retriever,
-            storage_context,
-            simple_ratio_thresh=0.4,
-        )
-    print("创建BM25稀疏检索器成功")
-
-    if retrieval_type == 1:
-        retriever = dense_retriever
-    elif retrieval_type == 2:
-        retriever = sparse_retriever
-    elif retrieval_type == 3:
-        retriever = HybridRetriever(
-            dense_retriever=dense_retriever,
-            sparse_retriever=sparse_retriever,
-            retrieval_type=retrieval_type,  # 1-dense 2-sparse 3-hybrid
-            topk=f_topk,
-        )
-    print("创建混合检索器成功")
-
-    reranker = None
-    if use_reranker == 1:
-        reranker = SentenceTransformerRerank(
-            top_n=r_topk,
-            model=config["RERANKER_NAME"],
-        )
-        print(f"创建{config['RERANKER_NAME']}重排器成功")
-    elif use_reranker == 2:
-        reranker = LLMRerank(
-            top_n=r_topk,
-            model=config["RERANKER_NAME"],
-            embed_bs=32,  # 控制重排器批大小，减小显存占用
-            embed_type=r_embed_type,
-        )
-        print(f"创建{config['RERANKER_NAME']}LLM重排器成功")
 
     # 读入测试集
     queries = get_test_data(split)
 
     # 生成答案
     print("开始生成答案...")
-
-    results = []
-    docs = []
-    all_contents = []
+    answers = []
+    all_nodes = []
+    all_contexts = []
     for query in tqdm(queries, total=len(queries)):
-        if "document" in query:
-            dir = query['document']
-            filters = build_qdrant_filters(
-                dir=dir
-            )
-        else:
-            filters = None
-        filter_dict = {
-            "dir": dir
-        }
-
-        if rerank_fusion == 0:
-            # 常规RAG 一路粗排-精排
-            retriever.filters = filters
-            retriever.filter_dict = filter_dict
-            result, contexts, contents = await generation_with_knowledge_retrieval(
-                query_str=query["query"],
-                retriever=retriever,
-                llm=llm,
-                re_only=re_only,
-                reranker=reranker,
-                llm_embed_type=llm_embed_type,
-                nodes=nodes,
-                nodeid2idx=nodeid2idx,
-                # path_retriever=path_retriever
-            )
-            all_contents.append(contents)
-        else:
-            # 两路粗排-精排 + 精排后fusion
-            dense_retriever.filters = filters
-            # sparse_retriever.filter_dict = filter_dict
-            result, contexts = await generation_with_rerank_fusion(
-                query_str=query["query"],
-                dense_retriever=dense_retriever,
-                sparse_retriever=sparse_retriever,
-                llm=llm,
-                re_only=re_only,
-                reranker=reranker,
-                rerank_fusion_type=rerank_fusion,
-                r_topk_1=r_topk_1,
-            )
-
-        docs.append(contexts)
-        results.append(result)
+        res = await rag_pipeline.run(query)
+        answers.append(res['answer'])
+        all_nodes.append(res['nodes'])
+        all_contexts.append(res['contexts'])
 
     # 处理结果
     print("处理生成内容...")
@@ -282,12 +59,12 @@ async def main(
 
     # 本地提交
     answer_file = f"outputs/submit_result_{split}_{note}.jsonl"
-    answers = save_answers(queries, results, answer_file)
+    answers = save_answers(queries, answers, answer_file)
     print(f"保存结果至 {answer_file}")
 
     # docker提交
     # answer_file = f"submit_result.jsonl"
-    # answers = save_answers(queries, results, answer_file)
+    # answers = save_answers(queries, answers, answer_file)
 
     # 做评测
     os.makedirs("inter", exist_ok=True)
@@ -319,17 +96,17 @@ async def main(
     if save_inter:
         print("保存中间结果...")
         inter_res_list = []
-        for query, answer, documents, contents in tqdm(zip(queries, answers, docs, all_contents)):
-            paths = [doc.metadata['file_path'] for doc in documents]
-            know_paths = [doc.metadata['know_path'] for doc in documents]
+        for query, answer, nodes, contexts in tqdm(zip(queries, answers, all_nodes, all_contexts)):
+            paths = [node.metadata['file_path'] for node in nodes]
+            know_paths = [node.metadata['know_path'] for node in nodes]
             inter_res = {
                 "id": query['id'],
                 "query": query['query'],
                 "answer": answer['answer'],
-                "candidates": contents,
+                "candidates": contexts,
                 "paths": paths,
                 "know_paths": know_paths,
-                "quality": [0 for _ in range(len(contents))],
+                "quality": [0 for _ in range(len(contexts))],
                 "score": 0,
                 "duplicate": 0,
             }

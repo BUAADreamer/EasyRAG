@@ -16,7 +16,7 @@ def save_answers(
     answers = []
     for query, result in zip(queries, results):
         answers.append(
-            {"id": query["id"], "query": query["query"], "answer": result.text}
+            {"id": query["id"], "query": query["query"], "answer": result}
         )
 
     # use jsonlines to save the answers

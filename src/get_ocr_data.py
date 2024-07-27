@@ -2,11 +2,10 @@ import json
 import os.path
 
 import fire
-from paddleocr import PaddleOCR, draw_ocr
+from paddleocr import PaddleOCR
 import re
 
 from tqdm import tqdm
-import logging
 
 from easyrag.utils.mllm_utils import glm4v_generate
 
@@ -68,7 +67,7 @@ def filter(title):
 def main(
 
 ):
-    json_path = "../data/format_data_with_img/imgmap_filtered_.json"
+    json_path = "../data/format_data_with_img/imgmap_raw.json"
     image_root = "../data/format_data_with_img"
     with open(json_path) as f:
         img_map = json.loads(f.read())
