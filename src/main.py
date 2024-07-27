@@ -59,7 +59,8 @@ async def main(
         chunk_size=1024,
         chunk_overlap=200,
         data_path="/home/zhangrichong/data/fengzc/rag/RAG-SemiFinal-Prepare/data/format_data_with_img",
-        f_embed_type=2,
+        f_embed_type_1=1,
+        f_embed_type_2=2,
         r_embed_type=1,
         llm_embed_type=0,
 ):
@@ -77,9 +78,12 @@ async def main(
     print("chunk_size:", chunk_size)
     print("chunk_overlap:", chunk_overlap)
     print("data_path:", data_path)
+    print("f_embed_type_1:", f_embed_type_1)
+    print("f_embed_type_2:", f_embed_type_2)
+    print("r_embed_type:", r_embed_type)
+    print("llm_embed_type:", llm_embed_type)
 
     config = dotenv_values(".env")
-    config['DATA_PATH'] = os.path.abspath(config['DATA_PATH'])
     # 初始化 LLM 嵌入模型 和 Reranker
     llm = OpenAI(
         api_key=GLM_KEY,
@@ -89,18 +93,19 @@ async def main(
     )
     embedding_name = config.get("EMBEDDING_NAME")
     if retrieval_type != 2:
-        if "gte" in embedding_name:
+        if "gte" in embedding_name \
+                or "Zhihui" in embedding_name:
             embedding = GTEEmbedding(
                 model_name=embedding_name,
                 embed_batch_size=128,
-                embed_type=f_embed_type,
+                embed_type=f_embed_type_1,
             )
         else:
             embedding = HuggingFaceEmbedding(
                 model_name=embedding_name,
                 cache_folder=config.get("HFMODEL_CACHE_FOLDER"),
                 embed_batch_size=128,
-                embed_type=f_embed_type,
+                embed_type=f_embed_type_1,
                 # query_instruction="为这个句子生成表示以用于检索相关文章：", # 默认已经加上了，所以加不加无所谓
             )
     else:
@@ -144,8 +149,8 @@ async def main(
         chunk_overlap,
         split_type,
     )
-    nodes = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
-    print(f"索引已建立，一共有{len(nodes)}个节点")
+    nodes_ = await preprocess_pipeline.arun(documents=data, show_progress=True, num_workers=1)
+    print(f"索引已建立，一共有{len(nodes_)}个节点")
 
     # 加载检索器
     dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk_1)
@@ -155,20 +160,30 @@ async def main(
     import jieba
     tk = jieba.Tokenizer()
     if split_type == 1:
-        nodes_ = get_leaf_nodes(nodes)
-        print("叶子节点数量:", len(nodes_))
+        nodes = get_leaf_nodes(nodes_)
+        print("叶子节点数量:", len(nodes))
         docstore = SimpleDocumentStore()
         docstore.add_documents(nodes)
         storage_context = StorageContext.from_defaults(docstore=docstore)
-    elif split_type == 0:
-        nodes_ = nodes
+    else:
+        nodes = nodes_
+    nodeid2idx = dict()
+    for i, node in enumerate(nodes):
+        nodeid2idx[node.node_id] = i
     sparse_retriever = BM25Retriever.from_defaults(
-        nodes=nodes_,
+        nodes=nodes,
         tokenizer=tk,
         similarity_top_k=f_topk_2,
         stopwords=stp_words,
-        embed_type=f_embed_type,
+        embed_type=f_embed_type_2,
     )
+    # path_retriever = BM25Retriever.from_defaults(
+    #     nodes=nodes,
+    #     tokenizer=tk,
+    #     similarity_top_k=192,
+    #     stopwords=stp_words,
+    #     embed_type=4,  # 4-->file_path 5-->know_path
+    # )
     if split_type == 1:
         sparse_retriever = AutoMergingRetriever(
             sparse_retriever,
@@ -214,6 +229,7 @@ async def main(
 
     results = []
     docs = []
+    all_contents = []
     for query in tqdm(queries, total=len(queries)):
         if "document" in query:
             dir = query['document']
@@ -230,18 +246,22 @@ async def main(
             # 常规RAG 一路粗排-精排
             retriever.filters = filters
             retriever.filter_dict = filter_dict
-            result, contexts = await generation_with_knowledge_retrieval(
+            result, contexts, contents = await generation_with_knowledge_retrieval(
                 query_str=query["query"],
                 retriever=retriever,
                 llm=llm,
                 re_only=re_only,
                 reranker=reranker,
                 llm_embed_type=llm_embed_type,
+                nodes=nodes,
+                nodeid2idx=nodeid2idx,
+                # path_retriever=path_retriever
             )
+            all_contents.append(contents)
         else:
             # 两路粗排-精排 + 精排后fusion
             dense_retriever.filters = filters
-            sparse_retriever.filter_dict = filter_dict
+            # sparse_retriever.filter_dict = filter_dict
             result, contexts = await generation_with_rerank_fusion(
                 query_str=query["query"],
                 dense_retriever=dense_retriever,
@@ -297,19 +317,19 @@ async def main(
 
     # 保存中间结果
     if save_inter:
-        from easyrag.pipeline.ingestion import get_node_content
         print("保存中间结果...")
         inter_res_list = []
-        for query, answer, documents in tqdm(zip(queries, answers, docs)):
-            contexts = [f"{get_node_content(doc, llm_embed_type)}" for doc in documents]
+        for query, answer, documents, contents in tqdm(zip(queries, answers, docs, all_contents)):
             paths = [doc.metadata['file_path'] for doc in documents]
+            know_paths = [doc.metadata['know_path'] for doc in documents]
             inter_res = {
                 "id": query['id'],
                 "query": query['query'],
                 "answer": answer['answer'],
-                "candidates": contexts,
+                "candidates": contents,
                 "paths": paths,
-                "quality": [0 for _ in range(len(contexts))],
+                "know_paths": know_paths,
+                "quality": [0 for _ in range(len(contents))],
                 "score": 0,
                 "duplicate": 0,
             }

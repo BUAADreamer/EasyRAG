@@ -96,7 +96,12 @@ class BM25Retriever(BaseRetriever):
             self._tokenizer, get_node_content(node, self.embed_type), stopwords=stopwords)
             for node in self._nodes]
         # self._corpus = [self._tokenizer(node.get_content()) for node in self._nodes]
-        self.bm25 = BM25Okapi(self._corpus)
+        self.bm25 = BM25Okapi(
+            self._corpus,
+            k1=1.5,
+            b=0.75,
+            epsilon=0.25,
+        )
         self.filter_dict = None
         self.stopwords = stopwords
         super().__init__(

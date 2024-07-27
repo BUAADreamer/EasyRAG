@@ -9,7 +9,7 @@ from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.llms.llm import LLM
 from ..custom.splitter import SentenceSplitter
 from ..custom.hierarchical import HierarchicalNodeParser
-from llama_index.core.schema import Document, MetadataMode, TransformComponent
+from llama_index.core.schema import Document, MetadataMode, TransformComponent, NodeRelationship, TextNode, NodeWithScore
 from llama_index.core.vector_stores.types import BasePydanticVectorStore, MetadataFilters, MetadataFilter
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import AsyncQdrantClient, models
@@ -17,16 +17,54 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.http.models import Filter, FieldCondition, MatchValue
 
 
-def get_node_content(node, embed_type=0) -> str:
-    text = node.get_content()
+def merge_strings(A, B):
+    # 找到A的结尾和B的开头最长的匹配子串
+    max_overlap = 0
+    min_length = min(len(A), len(B))
+
+    for i in range(1, min_length + 1):
+        if A[-i:] == B[:i]:
+            max_overlap = i
+
+    # 合并A和B，去除重复部分
+    merged_string = A + B[max_overlap:]
+    return merged_string
+
+
+def get_node_content(node: NodeWithScore, embed_type=0, nodes: list[TextNode] = None, nodeid2idx: dict = None) -> str:
+    text: str = node.get_content()
+    if embed_type == 6:
+        cur_text = text
+        if cur_text.count("|") >= 5 and cur_text.count("---") == 0:
+            cnt = 0
+            flag = False
+            while True:
+                pre_node_id = node.node.relationships[NodeRelationship.PREVIOUS].node_id
+                pre_node = nodes[nodeid2idx[pre_node_id]]
+                pre_text = pre_node.text
+                cur_text = merge_strings(pre_text, cur_text)
+                cnt += 1
+                if pre_text.count("---") >= 2:
+                    flag = True
+                    break
+                if cnt >= 3:
+                    break
+            if flag:
+                idx = cur_text.index("---")
+                text = cur_text[:idx].strip().split("\n")[-1] + cur_text[idx:]
+            print(flag, cnt)
     if embed_type == 1:
         text = '###\n' + node.metadata['file_path'] + "\n\n" + text
     elif embed_type == 2:
         text = '###\n' + node.metadata['know_path'] + "\n\n" + text
-    elif embed_type == 3:
+    elif embed_type == 3 or embed_type == 6:
         if "imgobjs" in node.metadata and len(node.metadata['imgobjs']) > 0:
             for imgobj in node.metadata['imgobjs']:
-                text = text.replace(f"{imgobj['cap']} {imgobj['title']}\n", f"{imgobj['cap']} {imgobj['title']}:{imgobj['content']}\n")
+                text = text.replace(f"{imgobj['cap']} {imgobj['title']}\n", f"{imgobj['cap']}.{imgobj['title']}:{imgobj['content']}\n")
+    elif embed_type == 4:
+        return node.metadata['file_path']
+    elif embed_type == 5:
+        return node.metadata['know_path']
     return text
 
 
@@ -48,7 +86,11 @@ def build_preprocess(
         split_type=0,  # 0-->Sentence 1-->Hierarchical
 ) -> List[TransformComponent]:
     if split_type == 0:
-        parser = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        parser = SentenceSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            include_prev_next_rel=True,
+        )
     else:
         parser = HierarchicalNodeParser.from_defaults(
             chunk_sizes=[chunk_size * 4, chunk_size],

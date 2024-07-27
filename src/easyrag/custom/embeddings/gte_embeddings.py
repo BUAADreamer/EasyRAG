@@ -10,6 +10,8 @@ from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.schema import BaseNode, MetadataMode
 from llama_index.core.utils import infer_torch_device
 from torch import Tensor
+from transformers import AutoTokenizer
+
 from ...utils.modeling_qwen import Qwen2Model
 from ...utils.tokenization_qwen import Qwen2Tokenizer
 from ...pipeline.ingestion import get_node_content
@@ -30,7 +32,7 @@ class GTEEmbedding(BaseEmbedding):
             **kwargs: Any,
     ) -> None:
         self._device = infer_torch_device()
-        self._tokenizer = Qwen2Tokenizer.from_pretrained(model_name, trust_remote_code=True)
+        self._tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         self._model = Qwen2Model.from_pretrained(model_name, trust_remote_code=True, torch_dtype=torch.bfloat16).to(
             self._device)
         self._model.eval()

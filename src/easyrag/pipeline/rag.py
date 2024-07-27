@@ -38,6 +38,37 @@ async def generation(llm, fmt_qa_prompt):
             print(f"已重复生成{cnt}次")
 
 
+def deduplicate(contents):
+    new_contents = []
+    contentmap = dict()
+    for content in contents:
+        if content not in contentmap:
+            contentmap[content] = 1
+            new_contents.append(content)
+    return new_contents
+
+
+def analysis_path_res(query, node_with_scores):
+    num = len(node_with_scores)
+    if num < 192 or query == 'VNF弹性分几类？':
+        print(query, num)
+    else:
+        return
+    # if len(node_with_scores) > 20 and query != 'VNF弹性分几类？':
+    #     return
+    pathmap = dict()
+    for node in node_with_scores[:10]:
+        know_path = node.metadata['file_path']
+        print(know_path)
+        if know_path not in pathmap:
+            pathmap[know_path] = 1
+        else:
+            pathmap[know_path] += 1
+    # print(query)
+    # print(len(pathmap.keys()))
+    # print(pathmap)
+
+
 async def generation_with_knowledge_retrieval(
         query_str: str,
         retriever: BaseRetriever,
@@ -48,8 +79,14 @@ async def generation_with_knowledge_retrieval(
         progress=None,
         re_only: bool = False,
         llm_embed_type: int = 0,
+        nodes: list = None,
+        nodeid2idx: dict = None,
+        path_retriever: BaseRetriever = None,
 ):
     query_bundle = QueryBundle(query_str=query_str)
+    # node_with_scores_path = await path_retriever.aretrieve(query_bundle)
+    # analysis_path_res(query_str, node_with_scores_path)
+    # return CompletionResponse(text=""), node_with_scores_path, [""]
     node_with_scores = await retriever.aretrieve(query_bundle)
     if debug:
         print(f"retrieved:\n{node_with_scores}\n------")
@@ -57,17 +94,19 @@ async def generation_with_knowledge_retrieval(
         node_with_scores = reranker.postprocess_nodes(node_with_scores, query_bundle)
         if debug:
             print(f"reranked:\n{node_with_scores}\n------")
+    contents = [get_node_content(node, llm_embed_type, nodes, nodeid2idx) for node in node_with_scores]
+    # contents = deduplicate(contents)
     context_str = "\n\n".join(
-        [f"### 文档{i}: {get_node_content(node, llm_embed_type)}" for i, node in enumerate(node_with_scores)]
+        [f"### 文档{i}: {content}" for i, content in enumerate(contents)]
     )
 
     if re_only:
-        return CompletionResponse(text=""), node_with_scores
+        return CompletionResponse(text=""), node_with_scores, contents
     fmt_qa_prompt = PromptTemplate(qa_template).format(
         context_str=context_str, query_str=query_str
     )
     ret = await generation(llm, fmt_qa_prompt)
-    return ret, node_with_scores
+    return ret, node_with_scores, contents
 
 
 async def generation_with_rerank_fusion(

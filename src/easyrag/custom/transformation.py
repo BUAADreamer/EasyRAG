@@ -7,7 +7,7 @@ from llama_index.core.extractors.interface import BaseExtractor
 from llama_index.core.schema import BaseNode
 
 
-def filter_image(cap, title, text):
+def filter_image(cap, title, text, content):
     # 过滤text中含有特殊内容的node
     ignore_words = [
         "流程", "，", "示例", "配置", "组网图", "（可选）", "文件"
@@ -17,9 +17,14 @@ def filter_image(cap, title, text):
         if ignore_sentence in text:
             return True
     # 过滤title中含有特殊内容的node
-    ignore_words = ["架构", "结构", "组网图", "页面", "对话框"]
+    ignore_words = ["架构", "结构", "组网图", "页面", "对话框", "配置", "导读", "流程", "协议", "实例"]
     for ignore_word in ignore_words:
         if ignore_word in title:
+            return True
+    # 过滤content中含有特殊内容的node
+    ignore_words = ["架构图", "树形图", "网络拓扑图", "表格"]
+    for ignore_word in ignore_words:
+        if ignore_word in content:
             return True
     # 过滤不含有某个模式的node
     contains_sentences = [f'如{cap}所示']
@@ -52,6 +57,7 @@ class CustomFilePathExtractor(BaseExtractor):
         else:
             pathmap = None
         imgmap_file = os.path.join(self.data_path, "imgmap_filtered.json")
+        print(imgmap_file, flush=True)
         if os.path.exists(imgmap_file):
             with open(imgmap_file) as f:
                 imgmap = json.loads(f.read())
@@ -73,7 +79,7 @@ class CustomFilePathExtractor(BaseExtractor):
                         imgobj = cap2imgobj[cap]
                         title = imgobj['title']
                         content = imgobj['content']
-                        if filter_image(cap, title, content):
+                        if filter_image(cap, title, node.text, content):
                             continue
                         imgobj['cap'] = cap
                         imgobjs.append(imgobj)

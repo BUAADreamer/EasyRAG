@@ -102,11 +102,11 @@ jieba==0.42.1
 rank-bm25==0.2.2
 tqdm==4.66.2
 torch==2.3.0
-transformers==4.41.2
+transformers==4.42.3
 fire==0.6.0
 accelerate==0.31.0
 lxml==5.2.2
 html2text==2024.2.26
 paddlepaddle-gpu==2.6.0
 paddleocr==2.7.0.3
-torchvision=0.18.0
+torchvision==0.18.0

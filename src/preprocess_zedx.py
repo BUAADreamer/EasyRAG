@@ -50,7 +50,7 @@ def process_hmtl(html_doc, meta_dir, build_data_dir, url):
             dir_path = os.path.dirname(url)
             ori_img_dir = os.path.join(meta_dir, 'documents', dir_path, 'images')
             img_path = os.path.join(package_name, dir_path, figure_path)
-            filepath2imgpath_dict.setdefault(os.path.join(package_name, url), {})[figure_title] = {"img_path": img_path}
+            filepath2imgpath_dict.setdefault(os.path.join(package_name, url.replace('.html', '.txt').replace('.htm', '.txt')), {})[figure_title] = {"img_path": img_path}
 
             img_dir = os.path.join(build_data_dir, dir_path, 'images')
             if not os.path.exists(img_dir) and os.path.exists(ori_img_dir):
@@ -58,10 +58,12 @@ def process_hmtl(html_doc, meta_dir, build_data_dir, url):
 
             # 存储标题
             figure_cap = figure.find("figcaption")
-            for span in figure_cap.find_all('span'):
-                span.decompose()
-            title = figure_cap.get_text(strip=True)
-            filepath2imgpath_dict[os.path.join(package_name, url)][figure_title]["title"] = title
+            all_text = figure_cap.get_text(separator=' ', strip=True)
+            span_texts = [span.get_text(separator=' ', strip=True) for span in figure_cap.find_all('span')]
+            for span_text in span_texts:
+                all_text = all_text.replace(span_text, '')
+            title = ' '.join(all_text.split())
+            filepath2imgpath_dict[os.path.join(package_name, url.replace('.html', '.txt').replace('.htm', '.txt'))][figure_title]["title"] = title
 
     html = str(soup)
     h = html2text.HTML2Text()
