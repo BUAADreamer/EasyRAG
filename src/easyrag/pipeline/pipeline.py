@@ -3,25 +3,39 @@ import random
 import asyncio
 
 import nest_asyncio
+from llama_index.core.base.llms.types import CompletionResponse
 from llama_index.core.retrievers import AutoMergingRetriever
 from llama_index.core.storage.docstore import SimpleDocumentStore
 from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
-
-from .rag import generation
 from ..custom.embeddings import GTEEmbedding, HuggingFaceEmbedding
 from llama_index.core import Settings, StorageContext, QueryBundle, PromptTemplate
-from .ingestion import read_data, build_pipeline, build_preprocess_pipeline, build_vector_store, get_node_content, build_qdrant_filters
+from .ingestion import read_data, build_pipeline, build_preprocess_pipeline, build_vector_store, build_qdrant_filters
 from ..custom.rerankers import SentenceTransformerRerank, LLMRerank
 from ..custom.retrievers import QdrantRetriever, BM25Retriever, HybridRetriever
 from ..custom.hierarchical import get_leaf_nodes
 from ..custom.template import QA_TEMPLATE
+from .ingestion import get_node_content as get_node_content_
 
 
 def load_stopwords(path):
     with open(path, 'r', encoding='utf-8') as file:
         stopwords = set([line.strip() for line in file])
     return stopwords
+
+
+def merge_strings(A, B):
+    # 找到A的结尾和B的开头最长的匹配子串
+    max_overlap = 0
+    min_length = min(len(A), len(B))
+
+    for i in range(1, min_length + 1):
+        if A[-i:] == B[:i]:
+            max_overlap = i
+
+    # 合并A和B，去除重复部分
+    merged_string = A + B[max_overlap:]
+    return merged_string
 
 
 nest_asyncio.apply()
@@ -52,7 +66,7 @@ class EasyRAGPipeline:
             api_base="https://open.bigmodel.cn/api/paas/v4/",
             is_chat_model=True,
         )
-        self.qa_template = QA_TEMPLATE
+        self.qa_template = self.build_prompt_template(QA_TEMPLATE)
 
         # 初始化Embedding模型
         retrieval_type = config['retrieval_type']
@@ -134,9 +148,9 @@ class EasyRAGPipeline:
         print(f"创建{embedding_name}密集检索器成功")
 
         # 加载稀疏检索
-        stp_words = load_stopwords("./data/hit_stopwords.txt")
+        self.stp_words = load_stopwords("./data/hit_stopwords.txt")
         import jieba
-        tk = jieba.Tokenizer()
+        self.sparse_tk = jieba.Tokenizer()
         if split_type == 1:
             self.nodes = get_leaf_nodes(nodes_)
             print("叶子节点数量:", len(self.nodes))
@@ -149,18 +163,19 @@ class EasyRAGPipeline:
         f_embed_type_2 = config['f_embed_type_2']
         self.sparse_retriever = BM25Retriever.from_defaults(
             nodes=self.nodes,
-            tokenizer=tk,
+            tokenizer=self.sparse_tk,
             similarity_top_k=f_topk_2,
-            stopwords=stp_words,
+            stopwords=self.stp_words,
             embed_type=f_embed_type_2,
         )
-        # self.path_retriever = BM25Retriever.from_defaults(
-        #     nodes=self.nodes,
-        #     tokenizer=tk,
-        #     similarity_top_k=192,
-        #     stopwords=stp_words,
-        #     embed_type=4,  # 4-->file_path 5-->know_path
-        # )
+
+        self.path_retriever = BM25Retriever.from_defaults(
+            nodes=self.nodes,
+            tokenizer=self.sparse_tk,
+            similarity_top_k=6,
+            stopwords=self.stp_words,
+            embed_type=5,  # 4-->file_path 5-->know_path
+        )
 
         if split_type == 1:
             self.sparse_retriever = AutoMergingRetriever(
@@ -213,11 +228,14 @@ class EasyRAGPipeline:
 
         print("EasyRAGPipeline 初始化完成".center(60, "="))
 
-    async def run(self, query: dict) -> dict:
-        '''
-        "query":"问题" #必填
-        "document": "所属路径" #用于过滤文档，可选
-        '''
+    def build_query_bundle(self, query_str):
+        query_bundle = QueryBundle(query_str=query_str)
+        return query_bundle
+
+    def build_prompt_template(self, qa_template):
+        return PromptTemplate(qa_template)
+
+    def build_filters(self, query):
         filters = None
         filter_dict = dict()
         if "document" in query:
@@ -228,6 +246,32 @@ class EasyRAGPipeline:
             filter_dict = {
                 "dir": dir
             }
+        return filters, filter_dict
+
+    async def generation(self, llm, fmt_qa_prompt):
+        cnt = 0
+        # fmt_qa_prompt = filter_specfic_words(fmt_qa_prompt)
+        while True:
+            try:
+                ret = await llm.acomplete(fmt_qa_prompt)
+                return ret
+            except Exception as e:
+                print(e)
+                cnt += 1
+                if cnt >= 10:
+                    print(f"已达到最大生成次数{cnt}次，返回'无法确定'")
+                    return CompletionResponse(text="无法确定")
+                print(f"已重复生成{cnt}次")
+
+    def get_node_content(self, node) -> str:
+        return get_node_content_(node, embed_type=self.llm_embed_type, nodes=self.nodes, nodeid2idx=self.nodeid2idx)
+
+    async def run(self, query: dict) -> dict:
+        '''
+        "query":"问题" #必填
+        "document": "所属路径" #用于过滤文档，可选
+        '''
+        filters, filter_dict = self.build_filters(query)
         if self.rerank_fusion_type == 0:
             self.retriever.filters = filters
             self.retriever.filter_dict = filter_dict
@@ -246,31 +290,30 @@ class EasyRAGPipeline:
             self,
             query_str: str,
     ):
-        query_bundle = QueryBundle(query_str=query_str)
-        # node_with_scores_path = await path_retriever.aretrieve(query_bundle)
-        # analysis_path_res(query_str, node_with_scores_path)
-        # return CompletionResponse(text=""), node_with_scores_path, [""]
+        query_bundle = self.build_query_bundle(query_str)
         node_with_scores = await self.retriever.aretrieve(query_bundle)
+        node_with_scores_path = await self.path_retriever.aretrieve(query_bundle)
+        node_with_scores = HybridRetriever.fusion([node_with_scores, node_with_scores_path])
         if self.reranker:
             node_with_scores = self.reranker.postprocess_nodes(node_with_scores, query_bundle)
-        contents = [get_node_content(node, self.llm_embed_type, self.nodes, self.nodeid2idx) for node in node_with_scores]
-        # contents = deduplicate(contents)
+        contents = [self.get_node_content(node=node) for node in node_with_scores]
         context_str = "\n\n".join(
             [f"### 文档{i}: {content}" for i, content in enumerate(contents)]
         )
         if self.re_only:
             return {"answer": "", "nodes": node_with_scores, "contexts": contents}
-        fmt_qa_prompt = PromptTemplate(self.qa_template).format(
+        fmt_qa_prompt = self.qa_template.format(
             context_str=context_str, query_str=query_str
         )
-        ret = await generation(self.llm, fmt_qa_prompt)
+        ret = await self.generation(self.llm, fmt_qa_prompt)
         return {"answer": ret.text, "nodes": node_with_scores, "contexts": contents}
 
     async def generation_with_rerank_fusion(
             self,
             query_str: str,
     ):
-        query_bundle = QueryBundle(query_str=query_str)
+        # 暂不维护
+        query_bundle = self.build_query_bundle(query_str)
 
         node_with_scores_dense = await self.dense_retriever.aretrieve(query_bundle)
         if self.reranker:
@@ -285,36 +328,36 @@ class EasyRAGPipeline:
         # node_with_scores = HybridRetriever.fusion([node_with_scores_sparse, node_with_scores_dense], topk=reranker.top_n)
 
         if self.re_only:
-            contents = [get_node_content(node, self.llm_embed_type, self.nodes, self.nodeid2idx) for node in node_with_scores]
+            contents = [self.get_node_content(node) for node in node_with_scores]
             return {"answer": "", "nodes": node_with_scores, "contexts": contents}
 
         if self.rerank_fusion_type == 1:
-            contents = [get_node_content(node, self.llm_embed_type, self.nodes, self.nodeid2idx) for node in node_with_scores]
+            contents = [self.get_node_content(node) for node in node_with_scores]
             context_str = "\n\n".join(
                 [f"### 文档{i}: {content}" for i, content in enumerate(contents)]
             )
-            fmt_qa_prompt = PromptTemplate(self.qa_template).format(
+            fmt_qa_prompt = self.qa_template.format(
                 context_str=context_str, query_str=query_str
             )
-            ret = await generation(self.llm, fmt_qa_prompt)
+            ret = await self.generation(self.llm, fmt_qa_prompt)
         else:
-            contents = [get_node_content(node, self.llm_embed_type, self.nodes, self.nodeid2idx) for node in node_with_scores_sparse]
+            contents = [self.get_node_content(node) for node in node_with_scores_sparse]
             context_str = "\n\n".join(
                 [f"### 文档{i}: {content}" for i, content in enumerate(contents)]
             )
-            fmt_qa_prompt = PromptTemplate(self.qa_template).format(
+            fmt_qa_prompt = self.qa_template.format(
                 context_str=context_str, query_str=query_str
             )
-            ret_sparse = await generation(self.llm, fmt_qa_prompt)
+            ret_sparse = await self.generation(self.llm, fmt_qa_prompt)
 
-            contents = [get_node_content(node, self.llm_embed_type, self.nodes, self.nodeid2idx) for node in node_with_scores_dense]
+            contents = [self.get_node_content(node) for node in node_with_scores_dense]
             context_str = "\n\n".join(
                 [f"### 文档{i}: {content}" for i, content in enumerate(contents)]
             )
-            fmt_qa_prompt = PromptTemplate(self.qa_template).format(
+            fmt_qa_prompt = self.qa_template.format(
                 context_str=context_str, query_str=query_str
             )
-            ret_dense = await generation(self.llm, fmt_qa_prompt)
+            ret_dense = await self.generation(self.llm, fmt_qa_prompt)
 
             if self.rerank_fusion_type == 2:
                 if len(ret_dense.text) >= len(ret_sparse.text):
