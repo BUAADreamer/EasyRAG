@@ -63,8 +63,8 @@ async def main(
     print(f"保存结果至 {answer_file}")
 
     # docker提交
-    # answer_file = f"submit_result.jsonl"
-    # answers = save_answers(queries, answers, answer_file)
+    answer_file = f"submit_result.jsonl"
+    answers = save_answers(queries, answers, answer_file)
 
     # 做评测
     os.makedirs("inter", exist_ok=True)

@@ -7,10 +7,8 @@ git lfs install
 
 rm -r model
 mkdir model
-cp src/envs/.env.gte src/.env
 # # download the model if you need
 git clone https://www.modelscope.cn/models/buaadreamer/bge-reranker-v2-minicpm-layerwise && mv bge-reranker-v2-minicpm-layerwise model/bge-reranker-v2-minicpm-layerwise
-git clone https://www.modelscope.cn/models/buaadreamer/gte-Qwen2-7B-instruct && mv gte-Qwen2-7B-instruct model/gte-Qwen2-7B-instruct
 
 # prepare dataset and unzip
 rm -rf data

@@ -50,7 +50,8 @@ def process_hmtl(html_doc, meta_dir, build_data_dir, url):
             dir_path = os.path.dirname(url)
             ori_img_dir = os.path.join(meta_dir, 'documents', dir_path, 'images')
             img_path = os.path.join(package_name, dir_path, figure_path)
-            filepath2imgpath_dict.setdefault(os.path.join(package_name, url.replace('.html', '.txt').replace('.htm', '.txt')), {})[figure_title] = {"img_path": img_path}
+            filepath2imgpath_dict.setdefault(os.path.join(package_name, url.replace('.html', '.txt').replace('.htm', '.txt')), {})[figure_title] = {
+                "img_path": img_path}
 
             img_dir = os.path.join(build_data_dir, dir_path, 'images')
             if not os.path.exists(img_dir) and os.path.exists(ori_img_dir):
@@ -161,7 +162,7 @@ if __name__ == '__main__':
     print('with_path: ', args.with_path)
     # exit()
 
-    base_meta_dir = '/home/zhangrichong/data/fengzc/rag/wzy_rag/RAG-AIOps/data/meta'
+    base_meta_dir = '../data/origin_data'
     base_processed_data_dir = '../data/format_data_with_img'
     filepath_2_knowpath = dict()
     filepath2imgpath_dict = dict()

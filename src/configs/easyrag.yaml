@@ -43,9 +43,9 @@ chunk_size: 1024
 chunk_overlap: 200
 
 # 路径参数
-data_path: "/home/zhangrichong/data/fengzc/rag/RAG-SemiFinal-Prepare/data/format_data_with_img"
-hfmodel_cache_folder: "/home/zhangrichong/data/hf_cache/hub"
+data_path: "../data/format_data_with_img"
+hfmodel_cache_folder: "../../../../hf_cache/hub"
 qdrant_url: "http://localhost:6333"
 
 # 本地LLM参数
-# local_llm_name: "../../models/THUDM/glm-4-9b-chat"
+# local_llm_name: "THUDM/glm-4-9b-chat"
