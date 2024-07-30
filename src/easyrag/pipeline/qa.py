@@ -10,6 +10,11 @@ def read_jsonl(path):
     return content
 
 
+def write_jsonl(path, content):
+    with jsonlines.open(path, "w") as json_file:
+        json_file.write_all(content)
+
+
 def save_answers(
         queries: Iterable, results: Iterable, path: str = "data/answers.jsonl"
 ):
@@ -18,12 +23,6 @@ def save_answers(
         answers.append(
             {"id": query["id"], "query": query["query"], "answer": result}
         )
-
-    # use jsonlines to save the answers
-    def write_jsonl(path, content):
-        with jsonlines.open(path, "w") as json_file:
-            json_file.write_all(content)
-
     # 保存答案到 data/answers.jsonl
     write_jsonl(path, answers)
     return answers

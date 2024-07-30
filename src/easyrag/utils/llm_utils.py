@@ -1,3 +1,4 @@
+import torch
 from zhipuai import ZhipuAI
 import base64
 from ..config import GLM_KEY
@@ -53,3 +54,21 @@ def zhipu_chat_vision(content: list, model="glm-4v", system=""):
     print(response)
     reply = response.choices[0].message.content
     return reply
+
+
+def local_llm_generate(query, model, tokenizer, device="cuda"):
+    inputs = tokenizer.apply_chat_template(
+        [{"role": "user", "content": query}],
+        add_generation_prompt=True,
+        tokenize=True,
+        return_tensors="pt",
+        return_dict=True
+    )
+    inputs = inputs.to(device)
+
+    gen_kwargs = {"max_length": 8192, "do_sample": True, "top_k": 1}
+    with torch.no_grad():
+        outputs = model.generate(**inputs, **gen_kwargs)
+        outputs = outputs[:, inputs['input_ids'].shape[1]:]
+        res = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return res

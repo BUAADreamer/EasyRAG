@@ -3,19 +3,24 @@ import random
 import asyncio
 
 import nest_asyncio
+import torch
 from llama_index.core.base.llms.types import CompletionResponse
 from llama_index.core.retrievers import AutoMergingRetriever
 from llama_index.core.storage.docstore import SimpleDocumentStore
 from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
 from ..custom.embeddings import GTEEmbedding, HuggingFaceEmbedding
 from llama_index.core import Settings, StorageContext, QueryBundle, PromptTemplate
 from .ingestion import read_data, build_pipeline, build_preprocess_pipeline, build_vector_store, build_qdrant_filters
 from ..custom.rerankers import SentenceTransformerRerank, LLMRerank
 from ..custom.retrievers import QdrantRetriever, BM25Retriever, HybridRetriever
 from ..custom.hierarchical import get_leaf_nodes
-from ..custom.template import QA_TEMPLATE
-from .ingestion import get_node_content as get_node_content_
+from ..custom.template import QA_TEMPLATE, MERGE_TEMPLATE
+from .ingestion import get_node_content as _get_node_content
+from ..utils.llm_utils import local_llm_generate as _local_llm_generate
+from .rag import generation as _generation
 
 
 def load_stopwords(path):
@@ -57,6 +62,7 @@ class EasyRAGPipeline:
         self.llm_embed_type = config['llm_embed_type']
         self.r_topk_1 = config['r_topk_1']
         self.rerank_fusion_type = config['rerank_fusion_type']
+        self.ans_refine_type = config['ans_refine_type']
         # 初始化 LLM
         llm_key = random.choice(config["llm_keys"])
         llm_name = config['llm_name']
@@ -67,7 +73,7 @@ class EasyRAGPipeline:
             is_chat_model=True,
         )
         self.qa_template = self.build_prompt_template(QA_TEMPLATE)
-
+        self.merge_template = self.build_prompt_template(MERGE_TEMPLATE)
         # 初始化Embedding模型
         retrieval_type = config['retrieval_type']
         embedding_name = config['embedding_name']
@@ -169,10 +175,11 @@ class EasyRAGPipeline:
             embed_type=f_embed_type_2,
         )
 
+        f_topk_3 = config['f_topk_3']
         self.path_retriever = BM25Retriever.from_defaults(
             nodes=self.nodes,
             tokenizer=self.sparse_tk,
-            similarity_top_k=6,
+            similarity_top_k=f_topk_3,
             stopwords=self.stp_words,
             embed_type=5,  # 4-->file_path 5-->know_path
         )
@@ -211,6 +218,7 @@ class EasyRAGPipeline:
         r_topk = config['r_topk']
         reranker_name = config['reranker_name']
         r_embed_type = config['r_embed_type']
+        r_embed_bs = config['r_embed_bs']
         if use_reranker == 1:
             self.reranker = SentenceTransformerRerank(
                 top_n=r_topk,
@@ -221,10 +229,27 @@ class EasyRAGPipeline:
             self.reranker = LLMRerank(
                 top_n=r_topk,
                 model=reranker_name,
-                embed_bs=32,  # 控制重排器批大小，减小显存占用
+                embed_bs=r_embed_bs,  # 控制重排器批大小，减小显存占用
                 embed_type=r_embed_type,
             )
             print(f"创建{reranker_name}LLM重排器成功")
+
+        self.local_llm_name = config.get('local_llm_name', "")
+        if self.local_llm_name:
+            self.local_llm_model = AutoModelForCausalLM.from_pretrained(
+                self.local_llm_name,
+                torch_dtype=torch.bfloat16,
+                low_cpu_mem_usage=True,
+                trust_remote_code=True
+            ).to("cuda").eval()
+            self.local_llm_tokenizer = AutoTokenizer.from_pretrained(
+                self.local_llm_name,
+                trust_remote_code=True,
+            )
+            print("创建本地大模型成功")
+        else:
+            self.local_llm_model = None
+            self.local_llm_tokenizer = None
 
         print("EasyRAGPipeline 初始化完成".center(60, "="))
 
@@ -249,51 +274,49 @@ class EasyRAGPipeline:
         return filters, filter_dict
 
     async def generation(self, llm, fmt_qa_prompt):
-        cnt = 0
-        # fmt_qa_prompt = filter_specfic_words(fmt_qa_prompt)
-        while True:
-            try:
-                ret = await llm.acomplete(fmt_qa_prompt)
-                return ret
-            except Exception as e:
-                print(e)
-                cnt += 1
-                if cnt >= 10:
-                    print(f"已达到最大生成次数{cnt}次，返回'无法确定'")
-                    return CompletionResponse(text="无法确定")
-                print(f"已重复生成{cnt}次")
+        return _generation(llm, fmt_qa_prompt)
 
     def get_node_content(self, node) -> str:
-        return get_node_content_(node, embed_type=self.llm_embed_type, nodes=self.nodes, nodeid2idx=self.nodeid2idx)
+        return _get_node_content(node, embed_type=self.llm_embed_type, nodes=self.nodes, nodeid2idx=self.nodeid2idx)
+
+    def local_llm_generate(self, query):
+        return _local_llm_generate(query, self.local_llm_model, self.local_llm_tokenizer)
 
     async def run(self, query: dict) -> dict:
         '''
         "query":"问题" #必填
         "document": "所属路径" #用于过滤文档，可选
         '''
-        filters, filter_dict = self.build_filters(query)
+        self.filters, self.filter_dict = self.build_filters(query)
         if self.rerank_fusion_type == 0:
-            self.retriever.filters = filters
-            self.retriever.filter_dict = filter_dict
+            self.retriever.filters = self.filters
+            self.retriever.filter_dict = self.filter_dict
             res = await self.generation_with_knowledge_retrieval(
                 query_str=query["query"],
             )
         else:
-            self.dense_retriever.filters = filters
-            self.sparse_retriever.filter_dict = filter_dict
+            self.dense_retriever.filters = self.filters
+            self.sparse_retriever.filter_dict = self.filter_dict
             res = await self.generation_with_rerank_fusion(
                 query_str=query["query"],
             )
         return res
+
+    def sort_by_retrieval(self, nodes):
+        new_nodes = sorted(nodes, key=lambda x: -x.node.metadata['retrieval_score'] if x.score else 0)
+        return new_nodes
 
     async def generation_with_knowledge_retrieval(
             self,
             query_str: str,
     ):
         query_bundle = self.build_query_bundle(query_str)
-        node_with_scores = await self.retriever.aretrieve(query_bundle)
+        node_with_scores = await self.sparse_retriever.aretrieve(query_bundle)
         node_with_scores_path = await self.path_retriever.aretrieve(query_bundle)
-        node_with_scores = HybridRetriever.fusion([node_with_scores, node_with_scores_path])
+        node_with_scores = HybridRetriever.fusion([
+            node_with_scores,
+            node_with_scores_path,
+        ])
         if self.reranker:
             node_with_scores = self.reranker.postprocess_nodes(node_with_scores, query_bundle)
         contents = [self.get_node_content(node=node) for node in node_with_scores]
@@ -306,6 +329,11 @@ class EasyRAGPipeline:
             context_str=context_str, query_str=query_str
         )
         ret = await self.generation(self.llm, fmt_qa_prompt)
+        if self.ans_refine_type == 1:
+            fmt_merge_prompt = self.merge_template.format(
+                context_str=contents[0], query_str=query_str, answer_str=ret.text
+            )
+            ret = await self.generation(self.llm, fmt_merge_prompt)
         return {"answer": ret.text, "nodes": node_with_scores, "contexts": contents}
 
     async def generation_with_rerank_fusion(
