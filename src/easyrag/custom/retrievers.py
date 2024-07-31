@@ -1,6 +1,8 @@
 import logging
+import time
 from typing import List, Optional, Callable, cast
 
+import bm25s
 from llama_index.core import QueryBundle, VectorStoreIndex
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.base.embeddings.base import BaseEmbedding
@@ -87,6 +89,7 @@ class BM25Retriever(BaseRetriever):
             verbose: bool = False,
             stopwords: List[str] = [""],
             embed_type: int = 0,
+            bm25_type: int = 0,
     ) -> None:
         self._nodes = nodes
         self._tokenizer = tokenizer
@@ -96,12 +99,23 @@ class BM25Retriever(BaseRetriever):
             self._tokenizer, get_node_content(node, self.embed_type), stopwords=stopwords)
             for node in self._nodes]
         # self._corpus = [self._tokenizer(node.get_content()) for node in self._nodes]
-        self.bm25 = BM25Okapi(
-            self._corpus,
-            k1=1.5,
-            b=0.75,
-            epsilon=0.25,
-        )
+        self.bm25_type = bm25_type
+        self.k1 = 1.5
+        self.b = 0.75
+        self.epsilon = 0.25
+        if self.bm25_type == 1:
+            self.bm25 = bm25s.BM25(
+                k1=self.k1,
+                b=self.b,
+            )
+            self.bm25.index(self._corpus)
+        else:
+            self.bm25 = BM25Okapi(
+                self._corpus,
+                k1=self.k1,
+                b=self.b,
+                epsilon=self.epsilon,
+            )
         self.filter_dict = None
         self.stopwords = stopwords
         super().__init__(
@@ -110,6 +124,31 @@ class BM25Retriever(BaseRetriever):
             objects=objects,
             verbose=verbose,
         )
+
+    def get_scores(self, query, docs=None):
+        if docs is None:
+            bm25 = self.bm25
+        else:
+            corpus = [tokenize_and_remove_stopwords(
+                self._tokenizer, doc, stopwords=self.stopwords)
+                for doc in docs]
+            if self.bm25_type == 1:
+                bm25 = bm25s.BM25(
+                    k1=self.k1,
+                    b=self.b,
+                )
+                bm25.index(corpus)
+            else:
+                bm25 = BM25Okapi(
+                    corpus,
+                    k1=self.k1,
+                    b=self.b,
+                    epsilon=self.epsilon,
+                )
+        tokenized_query = tokenize_and_remove_stopwords(self._tokenizer, query,
+                                                        stopwords=self.stopwords)
+        scores = bm25.get_scores(tokenized_query)
+        return scores
 
     @classmethod
     def from_defaults(
@@ -122,6 +161,7 @@ class BM25Retriever(BaseRetriever):
             verbose: bool = False,
             stopwords: List[str] = [""],
             embed_type: int = 0,
+            bm25_type: int = 0,  # 0-->official bm25-Okapi 1-->bm25s
     ) -> "BM25Retriever":
         # ensure only one of index, nodes, or docstore is passed
         if sum(bool(val) for val in [index, nodes, docstore]) != 1:
@@ -145,6 +185,7 @@ class BM25Retriever(BaseRetriever):
             verbose=verbose,
             stopwords=stopwords,
             embed_type=embed_type,
+            bm25_type=bm25_type,
         )
 
     def filter(self, scores):
@@ -173,9 +214,7 @@ class BM25Retriever(BaseRetriever):
             logger.warning("BM25Retriever does not support embeddings, skipping...")
 
         query = query_bundle.query_str
-        tokenized_query = tokenize_and_remove_stopwords(self._tokenizer, query,
-                                                        stopwords=self.stopwords)
-        scores = self.bm25.get_scores(tokenized_query)
+        scores = self.get_scores(query)
         nodes = self.filter(scores)
 
         return nodes

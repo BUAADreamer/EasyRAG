@@ -18,6 +18,7 @@ from ..custom.rerankers import SentenceTransformerRerank, LLMRerank
 from ..custom.retrievers import QdrantRetriever, BM25Retriever, HybridRetriever
 from ..custom.hierarchical import get_leaf_nodes
 from ..custom.template import QA_TEMPLATE, MERGE_TEMPLATE
+from ..custom.compressors import ContextCompressor
 from .ingestion import get_node_content as _get_node_content
 from ..utils.llm_utils import local_llm_generate as _local_llm_generate
 from .rag import generation as _generation
@@ -167,12 +168,14 @@ class EasyRAGPipeline:
             self.nodes = nodes_
         f_topk_2 = config['f_topk_2']
         f_embed_type_2 = config['f_embed_type_2']
+        bm25_type = config['bm25_type']
         self.sparse_retriever = BM25Retriever.from_defaults(
             nodes=self.nodes,
             tokenizer=self.sparse_tk,
             similarity_top_k=f_topk_2,
             stopwords=self.stp_words,
             embed_type=f_embed_type_2,
+            bm25_type=bm25_type,
         )
 
         f_topk_3 = config['f_topk_3']
@@ -182,6 +185,7 @@ class EasyRAGPipeline:
             similarity_top_k=f_topk_3,
             stopwords=self.stp_words,
             embed_type=5,  # 4-->file_path 5-->know_path
+            bm25_type=bm25_type,
         )
 
         if split_type == 1:
@@ -210,7 +214,7 @@ class EasyRAGPipeline:
                 retrieval_type=retrieval_type,  # 1-dense 2-sparse 3-hybrid
                 topk=f_topk,
             )
-        print("创建混合检索器成功")
+            print("创建混合检索器成功")
 
         # 创建重排器
         self.reranker = None
@@ -251,6 +255,17 @@ class EasyRAGPipeline:
             self.local_llm_model = None
             self.local_llm_tokenizer = None
 
+        compress_method = config['compress_method']
+        compress_rate = config['compress_rate']
+        if compress_method:
+            self.compressor = ContextCompressor(
+                compress_method,
+                compress_rate,
+                self.sparse_retriever,
+            )
+        else:
+            self.compressor = None
+
         print("EasyRAGPipeline 初始化完成".center(60, "="))
 
     def build_query_bundle(self, query_str):
@@ -274,7 +289,7 @@ class EasyRAGPipeline:
         return filters, filter_dict
 
     async def generation(self, llm, fmt_qa_prompt):
-        return _generation(llm, fmt_qa_prompt)
+        return await _generation(llm, fmt_qa_prompt)
 
     def get_node_content(self, node) -> str:
         return _get_node_content(node, embed_type=self.llm_embed_type, nodes=self.nodes, nodeid2idx=self.nodeid2idx)

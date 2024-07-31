@@ -17,6 +17,9 @@ vector_size: 3584
 cache_path: "cache" # 用于qdrant 硬盘存储调试
 collection_name: "aiops24" # qdrant collection名字
 
+# 稀疏检索器参数
+bm25_type: 0 # 0-->官方实现 1-->bm25s实现，速度更快
+
 # 重排器参数
 r_topk: 6 # 精排topk
 r_topk_1: 6 # 精排后Fusion的topk
@@ -48,4 +51,8 @@ hfmodel_cache_folder: "../../../../hf_cache/hub"
 qdrant_url: "http://localhost:6333"
 
 # 本地LLM参数
-# local_llm_name: "THUDM/glm-4-9b-chat"
+# local_llm_name: "Qwen/Qwen2-7B-Instruct"
+
+# 上下文压缩参数
+compress_method: "" # bm25_extract llmlingua longllmlingua
+compress_rate: 0.5
