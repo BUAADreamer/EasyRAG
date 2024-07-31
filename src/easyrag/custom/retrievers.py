@@ -249,11 +249,11 @@ class HybridRetriever(BaseRetriever):
                     node_ids.add(content)
         all_nodes = sorted(all_nodes, key=lambda node: node.score, reverse=True)
         topk = min(len(all_nodes), topk)
-        print("simple fusion后数量:", topk)
+        # print("simple fusion后数量:", topk)
         return all_nodes[:topk]
 
-    @classmethod
     # 倒数排序融合
+    @classmethod
     def reciprocal_rank_fusion(self, list_of_list_ranks_system, K=60, topk=256):
         from collections import defaultdict
         rrf_map = defaultdict(float)
@@ -270,7 +270,7 @@ class HybridRetriever(BaseRetriever):
             reranked_nodes.append(text_to_node[text])
             reranked_nodes[-1].score = score
         topk = min(topk, len(reranked_nodes))
-        print("rrf fusion后数量:", topk)
+        # print("rrf fusion后数量:", topk)
         return reranked_nodes[:topk]
 
     async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:

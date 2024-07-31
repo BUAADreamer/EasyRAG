@@ -150,9 +150,10 @@ class EasyRAGPipeline:
         print(f"索引已建立，一共有{len(nodes_)}个节点")
 
         # 加载密集检索
-        f_topk_1 = config['f_topk_1']
-        self.dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk_1)
-        print(f"创建{embedding_name}密集检索器成功")
+        if embedding is not None:
+            f_topk_1 = config['f_topk_1']
+            self.dense_retriever = QdrantRetriever(vector_store, embedding, similarity_top_k=f_topk_1)
+            print(f"创建{embedding_name}密集检索器成功")
 
         # 加载稀疏检索
         self.stp_words = load_stopwords("./data/hit_stopwords.txt")

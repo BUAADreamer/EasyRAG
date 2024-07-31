@@ -12,6 +12,6 @@ RUN pip install --upgrade pip -i https://pypi.mirrors.ustc.edu.cn/simple/
 RUN pip install --no-cache -i https://pypi.mirrors.ustc.edu.cn/simple/ -r requirements.txt
 
 # expose /data and /model as volumes
-VOLUME [ "/data", "/model", "/app" ]
+VOLUME [ "/data", "/models", "/app" ]
 
-CMD ["./pipeline.sh"]
+CMD ["python", "main.py"]

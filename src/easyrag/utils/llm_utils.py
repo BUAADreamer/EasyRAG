@@ -1,9 +1,8 @@
 import torch
 from zhipuai import ZhipuAI
 import base64
-from ..config import GLM_KEY
 
-client = ZhipuAI(api_key=GLM_KEY)
+client = ZhipuAI(api_key="4f3c198f8bcbfa81e2ef9fbea428d9d8.DGBE51vKXQP65ceE")
 
 
 def zhipu_generate(text, model="glm-4", system=""):

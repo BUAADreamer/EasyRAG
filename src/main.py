@@ -1,13 +1,13 @@
 import json
 import os
-from easyrag.pipeline.pipeline import EasyRAGPipeline
 
 os.environ['NLTK_DATA'] = './data/nltk_data/'
 
+from easyrag.pipeline.pipeline import EasyRAGPipeline
 from submit import submit
 import fire
 from tqdm.asyncio import tqdm
-from easyrag.pipeline.qa import read_jsonl, save_answers
+from easyrag.pipeline.qa import read_jsonl, save_answers, write_jsonl
 from easyrag.utils import get_yaml_data
 
 
@@ -64,7 +64,7 @@ async def main(
 
     # docker提交
     answer_file = f"submit_result.jsonl"
-    answers = save_answers(queries, answers, answer_file)
+    write_jsonl(answer_file, answers)
 
     # 做评测
     os.makedirs("inter", exist_ok=True)

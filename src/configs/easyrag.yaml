@@ -12,7 +12,7 @@ f_topk_3: 6 # 路径搜索粗排topk
 
 # 密集检索器参数
 reindex: false  # 是否从头开始构建索引
-embedding_name: ../../models/gte-Qwen2-7B-instruct
+embedding_name: Alibaba-NLP/gte-Qwen2-7B-instruct
 vector_size: 3584
 cache_path: "cache" # 用于qdrant 硬盘存储调试
 collection_name: "aiops24" # qdrant collection名字
@@ -23,7 +23,7 @@ bm25_type: 0 # 0-->官方实现 1-->bm25s实现，速度更快
 # 重排器参数
 r_topk: 6 # 精排topk
 r_topk_1: 6 # 精排后Fusion的topk
-reranker_name: ../../models/bge-reranker-v2-minicpm-layerwise
+reranker_name: ../models/bge-reranker-v2-minicpm-layerwise
 use_reranker: 2 # 0-->不使用 1-->ST的普通Reranker 2-->bge LLM Reranker
 r_embed_bs: 32
 

@@ -111,3 +111,5 @@ paddlepaddle-gpu==2.6.0
 paddleocr==2.7.0.3
 torchvision==0.18.0
 bm25s==0.1.7
+llmlingua==0.2.2
+zhipuai
