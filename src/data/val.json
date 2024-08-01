@@ -1,0 +1,711 @@
+[
+  {
+    "id": 1,
+    "query": "ZXUN RCP部署成功后，各个虚机个数都是最少个数，是否可以一次性扩容完成？有哪些注意事项？",
+    "answer": "一般不能一次性完成扩容，每类虚机都有扩容的最大限制。\n例如：CDU虚机每次扩容的最大SC个数为15，步长为3；\nGSU (Policy Control)虚机每次扩容的最大SC个数为5，步长为1；\nGSU (HTTP LB)虚机每次扩容的最大SC个数为5，步长为1；\nGSU (SIG LB))虚机每次扩容的最大SC个数为5，步长为1；\nGSU (CGW)虚机每次扩容的最大SC个数为4，步长为1；\nIPU虚机每次扩容的最大SC个数为5，步长为1；\nLOG虚机每次扩容的最大SC个数为5，步长为1；\nLSU虚机每次扩容的最大SC个数为5，步长为1；\n",
+    "document": "rcp",
+    "keywords": [
+      "一般不能",
+      "最大限制",
+      "CDU虚机",
+      "GSU虚机",
+      "IPU虚机",
+      "LOG虚机",
+      "LSU虚机",
+      "SC个数",
+      "步长"
+    ]
+  },
+  {
+    "id": 2,
+    "query": "如何排查PCF侧建立专载失败，发起Rx-ASR释放问题？",
+    "answer": "PCF侧建立专载失败，发起Rx-ASR释放\n故障现象\n5G语音呼叫失败，查看PCF侧信令跟踪消息，发现PCF在Rx-AAR触发建立专载后立即回复了Rx-ASR，SBC发起Rx-STR释放。\n\n故障分析\n可能原因如下：\na.PCF侧关联HTTP客户端模板配置错误（模板ID错误）。\nb.SMF在发给PCF的N7-create请求消息中未携带notificationUri字段，该情况通常是SMF侧PCC功能关联的HTTP服务端模板（执行SHOW PCFDYNAMICPROFILE命令查询）和与配置的HTTP服务端模板ID（执行SHOW SERVERPROFILE命令查询）不一致导致。\n\n故障处理\n1、PCF侧，执行SHOW SVCHTTPCLTPROF命令，查询关联HTTP客户端模板配置。执行SHOW CLIENTPROFILE命令，查询HTTP客户端模板ID配置。确认各服务关联的HTTP IPv4模板ID和HTTP IPv6模板ID是否与HTTP客户端模板配置的ID一致。\n是→3\n否→2\n2、PCF侧，执行SET SVCHTTPCLTPROF命令，修改相关服务关联的HTTP IPv4模板ID和HTTP IPv6模板ID，与HTTP客户端模板配置的ID一致。查看故障是否解决。\n是→结束\n否→3\n3、SMF侧检查配置，确认PCC功能模板关联的HTTP服务端模板是否与配置的HTTP服务端模板ID一致。\n是→5\n否→4\n4、联系SMF侧维护人员，修改PCC功能模板关联的HTTP服务端模板ID配置，确认与配置的HTTP服务端模板ID一致。查看故障是否解决。\n是→结束\n否→5\n5、联系中兴通讯技术支持。\n\n故障处理结果确认\nPCF侧建立专载正常，语音呼叫正常。",
+    "document": "rcp",
+    "keywords": [
+      "PCF侧建立专载失败",
+      "Rx-ASR释放",
+      "5G语音呼叫失败",
+      "HTTP客户端模板配置错误",
+      "模板ID错误",
+      "N7-create请求消息",
+      "notificationUri字段",
+      "SMF侧PCC功能",
+      "SHOW PCFDYNAMICPROFILE",
+      "SHOW SERVERPROFILE",
+      "SET SVCHTTPCLTPROF",
+      "PCC功能模板关联"
+    ]
+  },
+  {
+    "id": 3,
+    "query": "Director中的VDC是什么概念？",
+    "answer": "VDC（Virtual Data Centers）是一组虚拟资源的容器，是IaaS云向租户（组织）提供资源的基本单位",
+    "document": "director",
+    "keywords": [
+      "Virtual Data Centers",
+      "虚拟资源",
+      "容器",
+      "IaaS",
+      "云",
+      "资源",
+      "基本单位"
+    ]
+  },
+  {
+    "id": 4,
+    "query": "RCP如何将VoNR呼叫的Rx会话绑定到对应的N7会话？",
+    "answer": "RCP基于Rx会话AAR消息提供的用户IP地址绑定对应的N7会话",
+    "document": "rcp",
+    "keywords": [
+      "Rx会话",
+      "AAR消息",
+      "用户IP地址"
+    ]
+  },
+  {
+    "id": 5,
+    "query": "发布虚机时最多可以为虚机分配几块网卡？",
+    "answer": 16,
+    "document": "director",
+    "keywords": [
+      "16"
+    ]
+  },
+  {
+    "id": 6,
+    "query": "EPS回落流程中，PCF向SBC上报几次用户位置吗，分别使用什么事件？",
+    "answer": "PCF向SBC上报两次用户位置，分别使用EPS_FALLBACK事件和ACCESS_NETWORK_INFO_REPORT事件。",
+    "document": "rcp",
+    "keywords": [
+      "两次",
+      "EPS_FALLBACK",
+      "ACCESS_NETWORK_INFO_REPORT"
+    ]
+  },
+  {
+    "id": 7,
+    "query": "RCP对AF请求的授权响应方式有哪几种？",
+    "answer": "授权响应方式指的是RCP收到AAR/STR请求后，是先回复AAA/STA再和SMF/PGW交互，还是等和SMF/PGW交互后才回复AAA/STA，可以通过“AF能力配置”的“授权响应方式”进行配置，该字段各取值含义如下：\n0（立即响应）：RCP收到AAR/STR请求后，先回复AAA/STA，再和SMF/PGW交互。\n1（等承载确认后响应）：RCP收到AAR/STR请求后，先和SMF/PGW交互，再回复AAA/STA。\n2（仅IMS AF会话建立请求等承载确认后响应）：RCP仅对语音会话初始AAR，先和SMF/PGW交互，再回复AAA/STA。其它场景，先回复AAA/STA，再和SMF/PGW交互。\n该字段的取值2是RCP V7.22.20版本引入的，且此版本后该字段的默认值从取值0调整到取值2（存量配置的此字段若取值0，升级时通过网管脚本自动调整为取值2）。",
+    "document": "rcp",
+    "keywords": [
+      "AAR/STR请求",
+      "AAA/STA",
+      "SMF/PGW",
+      "AF能力配置",
+      "立即响应",
+      "等承载确认后响应",
+      "仅IMS AF会话建立请求等承载确认后响应",
+      "RCP V7.22.20"
+    ]
+  },
+  {
+    "id": 8,
+    "query": "Director接收南向告警的snmp端口号是多少",
+    "answer": 40002,
+    "document": "director",
+    "keywords": [
+      "40002"
+    ]
+  },
+  {
+    "id": 9,
+    "query": "硬件资源包括哪些种类",
+    "answer": "服务器、交换机、路由器、磁阵、防火墙等",
+    "document": "director",
+    "keywords": [
+      "服务器",
+      "交换机",
+      "路由器",
+      "磁阵",
+      "防火墙"
+    ]
+  },
+  {
+    "id": 10,
+    "query": "PCF与SMF对接时，一般需要配置哪些数据？",
+    "answer": "1、 \n执行ADD ADJHOSTGRP命令，增加邻接主机组。\n2、执行ADD ADJHOSTWD命令，增加邻接主机通配。\n3、执行ADD ADJHOSTIP命令，增加邻接主机IP配置。\n4、执行ADD BEARABILITY命令，增加承载能力。",
+    "document": "rcp",
+    "keywords": [
+      "ADD ADJHOSTGRP",
+      "增加邻接主机组",
+      "ADD ADJHOSTWD",
+      "增加邻接主机通配",
+      "ADD ADJHOSTIP",
+      "增加邻接主机IP配置",
+      "ADD BEARABILITY",
+      "增加承载能力"
+    ]
+  },
+  {
+    "id": 11,
+    "query": "Director支持在华为云虚机上部署吗？",
+    "answer": "只验证过TECS虚机和vmware虚机，没有验证过华为云虚机，所以不能确定行不行。",
+    "document": "director",
+    "keywords": [
+      "不能确定"
+    ]
+  },
+  {
+    "id": 12,
+    "query": "如何登录Director的容灾管理界面？",
+    "answer": "在地址栏中输入https://[tecs_client ip]:3011/myportal打开容灾页面，使用TCF的admin账户或容灾账户进行登录，登录的用户名和密码为：TCF：admin / xxxxx，容灾账号：ssm / PaaS1!2@3#4$",
+    "document": "director",
+    "keywords": [
+      "https",
+      "tecs_client ip",
+      "3011",
+      "myportal",
+      "TCF",
+      "admin账户",
+      "容灾账户",
+      "用户名",
+      "密码"
+    ]
+  },
+  {
+    "id": 13,
+    "query": "如何选择合适的信令跟踪",
+    "answer": "信令跟踪\n采集内容\n如果特定用户可以复现故障，则采集单用户端到端跟踪和单用户全跟踪。如果有接口失败，采集失败观察。\na.单用户端到端跟踪：用于确定引起业务流程失败的接口，对问题进行定界。需要同时采集PCF网元及周边网元的信令跟踪。\nb.单用户全跟踪：如果端到端跟踪显示PCF的接口消息处理失败，则需要进一步分析单用户全跟踪。全跟踪中，重点观察失败级别为error的信息。\nc.失败观察：查看失败接口在失败观察中对应的码流信息。",
+    "document": "rcp",
+    "keywords": [
+      "复现故障",
+      "单用户端到端跟踪",
+      "业务流程",
+      "PCF网元",
+      "周边网元",
+      "接口",
+      "失败",
+      "单用户全跟踪",
+      "失败观察",
+      "码流信息",
+      "error"
+    ]
+  },
+  {
+    "id": 14,
+    "query": "RCP如何识别紧急呼叫？",
+    "answer": "P-CSCF在紧急呼叫Rx会话中携带紧急呼叫Service-URN给RCP，RCP检查该Service-URN是否为RCP配置的紧急呼叫Service-URN，若是，则判断为紧急呼叫",
+    "document": "rcp",
+    "keywords": [
+      "P-CSCF",
+      "紧急呼叫",
+      "Rx会话",
+      "Service-URN",
+      "RCP",
+      "检查",
+      "配置"
+    ]
+  },
+  {
+    "id": 15,
+    "query": "模板中内部网络的VIP和地址池填写是要注意什么",
+    "answer": "“内部网络”VIP分配50个地址，地址池要写两段，第一段地址分配20个，第二段地址分配1024-20-50=954个左右",
+    "document": "director",
+    "keywords": [
+      "VIP",
+      "50个地址",
+      "第一段地址",
+      "20",
+      "第二段地址",
+      "954",
+      "分配"
+    ]
+  },
+  {
+    "id": 16,
+    "query": "命令行部署方式，daisyseed日志在哪个路径下？",
+    "answer": "/root/daisyseed_v3/daisyseed/daisyseed/output/daisyseed.log",
+    "document": "director",
+    "keywords": [
+      "/root/daisyseed_v3/daisyseed/daisyseed/output/daisyseed.log"
+    ]
+  },
+  {
+    "id": 17,
+    "query": "PCF使用同一个版本，在同一个环境下部署的多套PCF网元，是否可以使用同一个license申请文件申请？",
+    "answer": "不可以，业务License与实例化ZXUN RCP时生成的序列号一一对应，需要根据序列号申请License文件。",
+    "document": "rcp",
+    "keywords": [
+      "不可以",
+      "业务License",
+      "实例化",
+      "ZXUN RCP",
+      "序列号",
+      "一一对应",
+      "申请",
+      "License文件"
+    ]
+  },
+  {
+    "id": 18,
+    "query": "如果虚机规格已发布到云上，修改本地规格会同步修改云上的规格吗？",
+    "answer": "会",
+    "document": "director",
+    "keywords": [
+      "会"
+    ]
+  },
+  {
+    "id": 19,
+    "query": "中移报表功能中，哪些日志是需要SPR提供的？",
+    "answer": "SPR业务受理日志或SPR签约统计日志",
+    "document": "rcp",
+    "keywords": [
+      "SPR业务受理日志",
+      "SPR签约统计日志"
+    ]
+  },
+  {
+    "id": 20,
+    "query": "什么角色可以创建子组织？",
+    "answer": "组织管理员",
+    "document": "director",
+    "keywords": [
+      "组织管理员"
+    ]
+  },
+  {
+    "id": 21,
+    "query": "EMSPlus的Reporting局流量报表的功能有哪些",
+    "answer": "支持分不同时间粒度（15min/小时/天/周/月），按网元、APN、RAT、PLMN、位置（包括 区域、小区等）等多个维度进行分析，分析指标包括总流量、上行流量、下行流量、上行 流速、下行流速、连接数、连接时长等。并可以通过趋势分析、TOP分析等手段，结合图 形直观呈现",
+    "document": "emsplus",
+    "keywords": [
+      "时间粒度",
+      "网元",
+      "APN",
+      "RAT",
+      "PLMN",
+      "位置",
+      "总流量",
+      "上行流量",
+      "下行流量",
+      "上行流速",
+      "下行流速",
+      "连接数",
+      "连接时长",
+      "趋势分析",
+      "TOP分析",
+      "图形"
+    ]
+  },
+  {
+    "id": 22,
+    "query": "告警无法处理或无法恢复一般该怎么办？",
+    "answer": "如果告警无法处理或无法恢复，请及时联系中兴通讯。",
+    "document": "umac",
+    "keywords": [
+      "联系",
+      "中兴通讯"
+    ]
+  },
+  {
+    "id": 23,
+    "query": "故障来源有哪些？",
+    "answer": "用户投诉、日志系统、例行维护中发现、其它来源。",
+    "document": "emsplus",
+    "keywords": [
+      "用户投诉",
+      "日志系统",
+      "例行维护",
+      "故障来源"
+    ]
+  },
+  {
+    "id": 24,
+    "query": "对于ZXR10设备来说，告警级别分为哪八个级别？",
+    "answer": "1、EMERGENCIES（严重告警），可能会导致系统与业务崩溃的告警，需要立即采取相应措施； \n2、ALERTS（重大告警），系统出现重大故障，可能影响业务正常运行，需要立即采取相应措施； \n3、CRITICAL（紧急告警），出现紧急情况，需要尽快处理； \n4、ERRORS（错误告警），出现错误，在适当的时间进行处理； \n5、WARNINGS（警告告警），系统提示一些需要警告的情况，以引起用户注意，需要进一步观察； \n6、NOTIFICATIONS（通告信息），系统认为应该通告到各部分并记录的普通但很重要的事件信息； \n7、INFORMATIONAL（报告信息），一般性通知信息； \n8、DEBUGGING（调试信息），对管理员为调试系统或网络而输入命令的响应信息类别。",
+    "document": "umac",
+    "keywords": [
+      "EMERGENCIES",
+      "严重告警",
+      "ALERTS",
+      "重大告警",
+      "CRITICAL",
+      "紧急告警",
+      "ERRORS",
+      "错误告警",
+      "WARNINGS",
+      "警告告警",
+      "NOTIFICATIONS",
+      "通告告警",
+      "INFORMATIONAL",
+      "报告告警",
+      "DEBUGGING",
+      "调试告警"
+    ]
+  },
+  {
+    "id": 25,
+    "query": "uMAC支持在线配置和离线配置，区别在什么地方？",
+    "answer": "根据配置数据是否能即时生效来区分",
+    "document": "umac",
+    "keywords": [
+      "配置数据",
+      "即时生效"
+    ]
+  },
+  {
+    "id": 26,
+    "query": "NFS是能够独立完成某个具体功能的软件实体，NFS包括那几类",
+    "answer": "信令业务类服务 \n \n \n 平台支撑&网管运维类服务 \n \n \n 接口管理&转发服务 \n \n \n 数据存储类服务 \n \n \n 业务资源管理类服务",
+    "document": "umac",
+    "keywords": [
+      "信令业务类服务",
+      "平台支撑",
+      "网管运维类服务",
+      "接口管理",
+      "转发服务",
+      "数据存储类服务",
+      "业务资源管理类服务"
+    ]
+  },
+  {
+    "id": 27,
+    "query": "Dump功能中输出的文件中包含的用户信息有哪些内容",
+    "answer": "MME的用户信息包括IMSI、MSISDN、IMEI、TAI、CELLID、GUTI等",
+    "document": "umac",
+    "keywords": [
+      "IMSI",
+      "MSISDN",
+      "IMEI",
+      "TAI",
+      "CELLID",
+      "GUTI"
+    ]
+  },
+  {
+    "id": 28,
+    "query": "AMF用户信令跟踪，可以跟踪哪些接口的信令？",
+    "answer": "N1，N2，N8，N11，N12，N15，N22，Nnrf，N14，N26，NLs，NLg，N20，DNS",
+    "document": "umac",
+    "keywords": [
+      "N1",
+      "N2",
+      "N8",
+      "N11",
+      "N12",
+      "N15",
+      "N22",
+      "Nnrf",
+      "N14",
+      "N26",
+      "NLs",
+      "NLg",
+      "N20",
+      "DNS"
+    ]
+  },
+  {
+    "id": 29,
+    "query": "大量用户无法注册时候应该怎么排查故障？",
+    "answer": "1、查看告警中是否有明显软硬件告警。 \n是→则优先判断是否软硬件故障导致，可以通过倒换或复位相关虚机来解决故障。 \n若有虚机离线或重启告警，则同时观察同一服务器或是DC上有无其他网元虚机有同样告警，若只有AMF有虚机告警，则在AMF侧重点排查故障；若多网元都有虚机告警，则底层TECS、硬件都需要排查故障。 \n否→执行下一步。 \n2、查询操作日志，故障发生前网络中是否修改过配置。 \n是→可能是配置修改导致的故障，需及时回退配置。 \n否→执行下一步。 \n3、查看告警中是否有重要接口相关告警，如：周边网元不可达告警、大量gNB断链告警、NRF不可达告警、大量管理组件与业务模块间通讯异常/虚拟机检测代理异常等告警。 \n是→若有大量管理组件与业务模块间通讯异常/虚拟机检测代理异常等告警，则重点排查本局故障。此种场景可能存在周边网元不可达、gNB断链、NRF不可达和DNS服务器不可达等一种或多种告警。 \n若无管理组件与业务模块间通讯异常/虚拟机检测代理异常等告警，存在本省或本大区周边同类型网元均不可达、大量gNB断链和所有DNS服务器不可达其中一种告警，则重点排查与链路和对端，则进行PING包测试，确认是否传输或底层硬件问题，若是传输或底层硬件问题，则第一时间通知传输及TECS、硬件侧共同排查；若非传输或底层硬件问题，则转至下一步。 \n否→执行下一步。 \n4、跟踪信令跟踪、失败观察，查看流程异常的原因，判断是本局原因还是对端局原因。 \n对端局原因→通知对端局紧急处理。 \n本局原因→执行下一步。 \n5、收集告警通知、性能统计、信令跟踪的信息，联系中兴通讯技术支持。",
+    "document": "umac",
+    "keywords": [
+      "告警",
+      "软硬件告警",
+      "软硬件故障",
+      "倒换",
+      "复位",
+      "虚机离线",
+      "重启告警",
+      "AMF",
+      "TECS",
+      "操作日志",
+      "回退配置",
+      "配置修改",
+      "接口相关告警",
+      "管理组件",
+      "虚拟机检测代理异常",
+      "通讯异常",
+      "本省或本大区周边同类型网元均不可达",
+      "所有DNS服务器不可达",
+      "gNB断链",
+      "业务模块",
+      "通讯异常",
+      "信令跟踪",
+      "性能统计"
+    ]
+  },
+  {
+    "id": 30,
+    "query": "如何实现对MU指定需要存储的字段数据",
+    "answer": "可使用ADD MUSAVECFG命令，配置MU需要存储并最终入库的字段。",
+    "document": "emsplus",
+    "keywords": [
+      "ADD MUSAVECFG"
+    ]
+  },
+  {
+    "id": 31,
+    "query": "怎么调整通用查询结果中列的顺序",
+    "answer": "在专家模式中执行通用日志查询，在结果表格的最下方有列显示顺序按钮，点击该按钮后在显示的列名上进行拖动以调整列的顺序。",
+    "document": "emsplus",
+    "keywords": [
+      "专家模式",
+      "通用日志查询",
+      "结果表格",
+      "列显示顺序按钮",
+      "拖动"
+    ]
+  },
+  {
+    "id": 32,
+    "query": "当上报“用户License不足一级告警”且“告警类型”为“5G在线用户数不足”时，应如何进行确认？",
+    "answer": "1、执行SHOW USER STATISTICS命令，查询5G在线用户总数； \n2、执行SHOW LICENSE命令，查询License控制的5G总在线用户数； \n3、执行SHOW LICENSEALARM命令，查询配置的“一级告警门限值（%）”。",
+    "document": "umac",
+    "keywords": [
+      "SHOW USER STATISTICS",
+      "5G在线用户总数",
+      "SHOW LICENSE",
+      "License控制的5G总在线用户数",
+      "SHOW LICENSEALARM",
+      "一级告警门限值（%）"
+    ]
+  },
+  {
+    "id": 33,
+    "query": "EMSPlus可以接收哪些类型的数据？",
+    "answer": "消息类型和文件类型",
+    "document": "emsplus",
+    "keywords": [
+      "消息类型",
+      "文件类型"
+    ]
+  },
+  {
+    "id": 34,
+    "query": "ZXUN uMAC引入GSU N+M负荷分担有何作用",
+    "answer": "1、当某个GSU重启时，其他GSU接替这个GSU，继续用户的业务流程，其中用户数据从CDU读取后恢复到这些GSU。 \n2、冗余的GSU数越多，总的GSU个数就越多，在相同局用户数下，每个GSU的负荷就越低，能承受的同时宕机的GSU数也越多。",
+    "document": "umac",
+    "keywords": [
+      "GSU",
+      "N+M",
+      "负荷",
+      "重启",
+      "冗余",
+      "同时宕机",
+      "用户数据",
+      "CDU",
+      "业务流程"
+    ]
+  },
+  {
+    "id": 35,
+    "query": "EMSPlus出现告警后处理办法有哪些？",
+    "answer": "查看告警并参考处理意见，然后定位，联系相关人员及时定位，然后确认/反确认告警",
+    "document": "emsplus",
+    "keywords": [
+      "告警",
+      "处理意见",
+      "定位",
+      "相关人员",
+      "确认",
+      "反确认告警"
+    ]
+  },
+  {
+    "id": 36,
+    "query": "故障类别有哪些？",
+    "answer": "硬件设备故障、电源故障、传输网故障、数据修改、其它故障。",
+    "document": "emsplus",
+    "keywords": [
+      "硬件设备故障",
+      "电源故障",
+      "传输网故障",
+      "数据修改",
+      "其它故障"
+    ]
+  },
+  {
+    "id": 37,
+    "query": "AMF网元的采集方式有哪几种？",
+    "answer": "1、DIGITAL_PERF，累加值，被测网元中保存着一个正在运行的计数器，用来对某种事件进行累加计数； \n2、MAX_PERF，最大值，被测网元中保存着一个正在运行的计数器，用来对某种事件进行最大值统计； \n3、MIN_PERF，最小值，被测网元中保存着一个正在运行的计数器，用来对某种事件进行最小值统计； \n4、AVG_PERF，平均值，被测网元中保存着一个正在运行的计数器，用来对某种事件进行平均值统计； \n5、CUR_PERF，当前值，被测网元中保存着一个正在运行的计数器，用来对某种事件进行当前值统计。",
+    "document": "umac",
+    "keywords": [
+      "DIGITAL_PERF",
+      "累加值",
+      "MAX_PERF",
+      "最大值",
+      "MIN_PERF",
+      "最小值",
+      "AVG_PERF",
+      "平均值",
+      "CUR_PERF",
+      "当前值"
+    ]
+  },
+  {
+    "id": 38,
+    "query": "如何查询MDS节点IP地址？",
+    "answer": "cat /ubas/clustershell/groups | grep \"MDS\"",
+    "document": "emsplus",
+    "keywords": [
+      "cat /ubas/clustershell/groups | grep \"MDS\""
+    ]
+  },
+  {
+    "id": 39,
+    "query": "uMAC支持适应哪些IaaS云平台",
+    "answer": "ZTE AMF/MME/SGSN支持适应以下多个IaaS云平台： \n \n ZTE TECS \n \n VMWare \n \n 基于OpenStack（如RedHat OpenStack）的第三方IaaS云平台",
+    "document": "umac",
+    "keywords": [
+      "ZTE TECS",
+      "VMWare",
+      "OpenStack",
+      "RedHat OpenStack",
+      "第三方IaaS云平台"
+    ]
+  },
+  {
+    "id": 40,
+    "query": "服务化架构由一系列业务服务NFS和服务组件SC构成。uMAC的3G的媒体面报文处理由哪个SC负责",
+    "answer": "sc-mmesgsn-up",
+    "document": "umac",
+    "keywords": [
+      "sc-mmesgsn-up"
+    ]
+  },
+  {
+    "id": 41,
+    "query": "开启全量日志上报需要开启license项是哪个？",
+    "answer": "对应的License项目为“支持全量日志上报”（license ID：7014），此项目显示为“支持”，表示ZXUN uMAC支持全量日志上报。若激活该License，则AMF/MME/SGSN支持上报全量EMSPlus日志，包括成功日志、特殊日志以及失败日志；否则，仅支持上报失败日志。",
+    "document": "umac",
+    "keywords": [
+      "支持全量日志上报",
+      "license ID：7014",
+      "支持",
+      "成功日志",
+      "特殊日志",
+      "失败日志"
+    ]
+  },
+  {
+    "id": 42,
+    "query": "EMSPlus Logging产品架构中数据分发层的功能是什么？",
+    "answer": "提供消息分发服务。FTU将文件转换为消息分发到不同的MDS节点上，MDS则按照配置的不同 分发策略，将数据分发到指定的数据采集单元。",
+    "document": "emsplus",
+    "keywords": [
+      "消息分发服务",
+      "FTU",
+      "MDS节点",
+      "分发策略",
+      "数据采集单元"
+    ]
+  },
+  {
+    "id": 43,
+    "query": "SGSN/MME网元的采集方式有哪几种？",
+    "answer": "1、CC，累积计数器，累积计数器跟踪统计粒度内某事件的累积变化量，且计数器值一般单向累加； \n2、Gauge，测量计数器，测量计数器跟踪的事件数据在时间上是连续变化的，且可以双向改变（即可增加或减少）； \n3、Sample，采样计数器，采样计数器根据每次上报事件数据替换计数器中的原有数据（每隔十秒更新一次），在统计粒度周期结束时上报的结果为最近一次上报事件数据； \n4、TA，时间平均计数器，时间平均计数器一般每隔十秒采样连续变化事件数据值，统计粒度结束时计算并上报所有十秒数据的平均值； \n5、Max，最大值计数器，最大值计数器一般每隔十秒获取事件数据（该数据可能是连续事件数据的采样值，也有可能是十秒内的数据的变化值），且计数器中仅仅保存最大结果； \n6、Peak，峰值计数器，峰值计数器采用峰值算法计算整个网元内某事件的峰值数据，该计数器结果在OMP汇总并显示。",
+    "document": "umac",
+    "keywords": [
+      "CC",
+      "累积计数器",
+      "Gauge",
+      "测量计数器",
+      "Sample",
+      "采样计数器",
+      "TA",
+      "时间平均计数器",
+      "Max",
+      "最大值计数器",
+      "Peak",
+      "峰值计数器"
+    ]
+  },
+  {
+    "id": 44,
+    "query": "在某些情况下，维护人员希望了解本网元相关的无线网元的相关信息，应如何查询？",
+    "answer": "1、查询NSE信息(SHOW NSE INFO)； \n2、查询RNC信息(SHOW RNCALL INFO)； \n3、查询eNodeB信息(SHOW ENODEBALL INFO)； \n4、查询eNB邻接关系信息(SHOW ENB NEIGHBOR INFO)。",
+    "document": "umac",
+    "keywords": [
+      "查询NSE信息",
+      "SHOW NSE INFO",
+      "查询RNC信息",
+      "SHOW RNCALL INFO",
+      "查询eNodeB信息",
+      "SHOW ENODEBALL INFO",
+      "查询eNB邻接关系信息",
+      "SHOW ENB NEIGHBOR INFO"
+    ]
+  },
+  {
+    "id": 45,
+    "query": "EMSPlus支持MAN节点扩容吗？",
+    "answer": "不支持",
+    "document": "emsplus",
+    "keywords": [
+      "不支持"
+    ]
+  },
+  {
+    "id": 46,
+    "query": "EMSPlus_HeartBeat_NET如何进行IP地址规划",
+    "answer": "对于LN-DL-ZSL-RP0002B-A-MANO-ZE-EMSPLUS01-B-VNET-HB1-NET平面，vlan是490，IP段是192.168.54.0/29，对于LN-DL-ZSL-RP0002B-A-MANO-ZE-EMSPLUS01-B-VNET-HB2-NET，vlan是491，IP段是192.168.54.8/29",
+    "document": "emsplus",
+    "keywords": [
+      "LN-DL-ZSL-RP0002B-A-MANO-ZE-EMSPLUS01-B-VNET-HB1-NET",
+      "vlan",
+      "490",
+      "IP段",
+      "192.168.54.0/29",
+      "192.168.54.8/29",
+      "LN-DL-ZSL-RP0002B-A-MANO-ZE-EMSPLUS01-B-VNET-HB2-NET",
+      "491"
+    ]
+  },
+  {
+    "id": 47,
+    "query": "ZXUN uMAC管理平面采用了哪些安全措施。",
+    "answer": "1、用户超时退出 \n2、用户密码有效期 \n3、密码长度和强度 \n4、登录失败若干次锁定账户 \n5、密码重复控制",
+    "document": "umac",
+    "keywords": [
+      "用户超时退出",
+      "用户密码有效期",
+      "密码长度和强度",
+      "登录失败若干次锁定账户",
+      "密码重复控制"
+    ]
+  },
+  {
+    "id": 48,
+    "query": "ZXUN uMAC针对密码安全保护，采用哪些安全措施。",
+    "answer": "1、用户密码有效期 \n2、密码长度和强度 \n3、登录失败若干次锁定账户 \n4、密码重复控制",
+    "document": "umac",
+    "keywords": [
+      "用户密码有效期",
+      "密码长度和强度",
+      "登录失败若干次锁定账户",
+      "密码重复控制"
+    ]
+  },
+  {
+    "id": 49,
+    "query": "如何查询指定用户详单？",
+    "answer": "1、在通用日志查询页面，输入IMSI或是MSISDN，或是在detail区域选择指定的IMSI鼠标右键添加到高级查询条件\n2、概要分析下钻，自带IMSI等查询条件",
+    "document": "emsplus",
+    "keywords": [
+      "IMSI",
+      "MSISDN",
+      "通用日志查询页面",
+      "detail区域",
+      "高级查询条件",
+      "概要分析下钻"
+    ]
+  },
+  {
+    "id": 50,
+    "query": "业务告警分哪几种？",
+    "answer": "1、AMF告警； \n2、AMF通知； \n3、MME/SGSN告警； \n4、MME/SGSN通知； \n5、UDSF告警； \n6、UDSF通知； \n7、平台告警； \n8、平台通知。",
+    "document": "umac",
+    "keywords": [
+      "AMF告警",
+      "AMF通知",
+      "MME/SGSN告警",
+      "MME/SGSN通知",
+      "UDSF告警",
+      "UDSF通知",
+      "平台告警",
+      "平台通知"
+    ]
+  }
+]

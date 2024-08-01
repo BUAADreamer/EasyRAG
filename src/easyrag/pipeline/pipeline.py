@@ -350,6 +350,8 @@ class EasyRAGPipeline:
                 context_str=contents[0], query_str=query_str, answer_str=ret.text
             )
             ret = await self.generation(self.llm, fmt_merge_prompt)
+        elif self.ans_refine_type == 2:
+            ret.text = ret.text + "\n\n" + contents[0]
         return {"answer": ret.text, "nodes": node_with_scores, "contexts": contents}
 
     async def generation_with_rerank_fusion(
