@@ -26,33 +26,33 @@ cp submit_result.jsonl ../answer.jsonl
 
 ```yaml
 - src
-	- custom
+    - custom
         - splitter.py # 自定义块分割
         - hierarchical.py # 分层分块
         - transformation.py # 文件路径和标题抽取
         - embeddings # 为GTE单独实现一个embedding类，方便自定义使用
-        	- ...
+            - ...
         - retrievers.py # 实现基于qdrant的密集检索器，中文BM25检索器，实现了rrf和简单合并的融合检索器
-		- rerankers.py # 单独为bge系列的reranker实现一些类，方便自定义使用
+        - rerankers.py # 单独为bge系列的reranker实现一些类，方便自定义使用
         - template.py # QA提示词模板
-	- pipeline
-		- ingestion.py # 数据处理流程：数据读入，元数据提取，文档分块，编码，元数据过滤器，向量数据库建立
-		- pipeline.py # EasyRAG流程类，包含对各种数据和模型的初始化、具体的RAG流程定义
-		- rag.py # rag的一些工具函数
+    - pipeline
+        - ingestion.py # 数据处理流程：数据读入，元数据提取，文档分块，编码，元数据过滤器，向量数据库建立
+        - pipeline.py # EasyRAG流程类，包含对各种数据和模型的初始化、具体的RAG流程定义
+        - rag.py # rag的一些工具函数
         - qa.py # 读入问题文件，保存答案
-	- utils # 适配hf的custom llm在国内使用，直接由对应模型的hf链接中的代码复制而来
-		- ...
+    - utils # 适配hf的custom llm在国内使用，直接由对应模型的hf链接中的代码复制而来
+        - ...
     - configs
-		- easyrag.yaml # 配置文件
-	- data
-		- nltk_data # nltk中的停用词表和分词器数据
-		- hit_stopwords.txt # hit中文停用词表
-		- imgmap_filtered.json # 由get_ocr_data.py处理而来
-		- question.jsonl # 复赛测试集
-	- main.py # 主函数，入口文件
-	- preprocess_zedx.py # zedx数据预处理
-	- get_ocr_data.py # paddleocr+glm4v抽取图像内容
-	- submit.py # 初赛提交结果
+        - easyrag.yaml # 配置文件
+    - data
+        - nltk_data # nltk中的停用词表和分词器数据
+        - hit_stopwords.txt # hit中文停用词表
+        - imgmap_filtered.json # 由get_ocr_data.py处理而来
+        - question.jsonl # 复赛测试集
+    - main.py # 主函数，入口文件
+    - preprocess_zedx.py # zedx数据预处理
+    - get_ocr_data.py # paddleocr+glm4v抽取图像内容
+    - submit.py # 初赛提交结果
 - requirements.txt # python依赖
 ```
 
