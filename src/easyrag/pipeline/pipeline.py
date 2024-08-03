@@ -224,6 +224,7 @@ class EasyRAGPipeline:
         reranker_name = config['reranker_name']
         r_embed_type = config['r_embed_type']
         r_embed_bs = config['r_embed_bs']
+        r_use_efficient = config['r_use_efficient']
         if use_reranker == 1:
             self.reranker = SentenceTransformerRerank(
                 top_n=r_topk,
@@ -236,6 +237,7 @@ class EasyRAGPipeline:
                 model=reranker_name,
                 embed_bs=r_embed_bs,  # 控制重排器批大小，减小显存占用
                 embed_type=r_embed_type,
+                use_efficient=r_use_efficient,
             )
             print(f"创建{reranker_name}LLM重排器成功")
 

@@ -122,6 +122,7 @@ class LLMRerank(BaseNodePostprocessor):
     _type: int = PrivateAttr()
     _compress_ratio: int = PrivateAttr()
     _compress_layer: list[int] = PrivateAttr()
+    _use_efficient: int = PrivateAttr()
 
     def __init__(
             self,
@@ -131,6 +132,7 @@ class LLMRerank(BaseNodePostprocessor):
             keep_retrieval_score: Optional[bool] = True,
             embed_bs: int = 64,
             embed_type: int = 0,
+            use_efficient: int = 0
     ):
         device = infer_torch_device() if device is None else device
 
@@ -138,12 +140,23 @@ class LLMRerank(BaseNodePostprocessor):
         self._yes_loc = self._tokenizer('Yes', add_special_tokens=False)['input_ids'][0]
         self._embed_type = embed_type
         if "bge-reranker-v2-minicpm-layerwise" in model:
-            from ..utils.modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
-            self._model = LayerWiseMiniCPMForCausalLM.from_pretrained(
-                model,
-                torch_dtype=torch.bfloat16,
-                trust_remote_code=True,
-            ).to(device)
+            self._use_efficient = use_efficient
+            if self._use_efficient == 1:
+                from ..utils.modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
+                self._model = LayerWiseMiniCPMForCausalLM.from_pretrained(
+                    model,
+                    torch_dtype=torch.bfloat16,
+                    trust_remote_code=True,
+                ).to(device)
+                self._model.efficient_t = 0.4
+                self._model.efficient_layers = [12]
+            else:
+                from ..utils.efficient_modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
+                self._model = LayerWiseMiniCPMForCausalLM.from_pretrained(
+                    model,
+                    torch_dtype=torch.bfloat16,
+                    trust_remote_code=True,
+                ).to(device)
             self._model.eval()
             self._layer = 28  # 8-40
             self._type = 1
@@ -294,6 +307,9 @@ class LLMRerank(BaseNodePostprocessor):
         N = len(nodes)
 
         for i in range(0, N, bsz):
+            if self._type == 1 and i == 0 and self._use_efficient == 1:
+                self._model.judge = True
+                self._model.cut_layer = self._layer
             begin_idx, end_idx = i, min(i + bsz, N)
             cur_nodes = nodes[begin_idx:end_idx]
             query_and_nodes = [
@@ -323,6 +339,10 @@ class LLMRerank(BaseNodePostprocessor):
                     if self._type == 1:
                         all_scores = self._model(**inputs, return_dict=True, cutoff_layers=[self._layer])
                         scores = [scores[:, -1].view(-1, ).float() for scores in all_scores[0]][0]
+                        if i == 0 and self._use_efficient == 1:
+                            self._layer = self._model.cut_layer
+                            self._model.judge = False
+
                     elif self._type == 2:
                         outputs = self._model(**inputs,
                                               return_dict=True,

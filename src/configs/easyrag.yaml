@@ -26,6 +26,7 @@ r_topk_1: 6 # 精排后Fusion的topk
 reranker_name: ../models/bge-reranker-v2-minicpm-layerwise
 use_reranker: 2 # 0-->不使用 1-->ST的普通Reranker 2-->bge LLM Reranker
 r_embed_bs: 32
+r_use_efficient: 0 # 0-->不加速 1-->使用最大值选择方法加速
 
 # 生成参数
 llm_keys: [
