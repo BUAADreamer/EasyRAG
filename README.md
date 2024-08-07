@@ -56,10 +56,13 @@ uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
         - imgmap_filtered.json # 由get_ocr_data.py处理而来
         - question.jsonl # 复赛测试集
     - main.py # 主函数，入口文件
+    - api.py # FashAPI服务
     - preprocess_zedx.py # zedx数据预处理
     - get_ocr_data.py # paddleocr+glm4v抽取图像内容
     - submit.py # 初赛提交结果
 - requirements.txt # python依赖
+- run.sh # docker运行脚本
+- Dockerfile # docker配置文件
 ```
 
 ## 4. 可能的问题及解答
