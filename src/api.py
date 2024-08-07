@@ -51,4 +51,8 @@ async def rag(request: QueryRequest):
     res = await easyrag.run(
         query
     )
-    return res['answer']
+    result = {
+        "answer": res["answer"],
+        "contexts": res["contexts"],
+    }
+    return result

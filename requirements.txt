@@ -115,3 +115,4 @@ llmlingua==0.2.2
 zhipuai
 fastapi==0.112.0
 uvicorn==0.30.5
+streamlit==1.37.1
