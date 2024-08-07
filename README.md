@@ -20,6 +20,12 @@ python3 main.py
 cp submit_result.jsonl ../answer.jsonl
 ```
 
+## 3. API
+
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
 ## 3. 代码结构
 
 仅对复赛可能用到的代码进行讲解

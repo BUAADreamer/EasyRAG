@@ -141,17 +141,18 @@ class LLMRerank(BaseNodePostprocessor):
         self._embed_type = embed_type
         if "bge-reranker-v2-minicpm-layerwise" in model:
             self._use_efficient = use_efficient
-            if self._use_efficient == 1:
-                from ..utils.modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
+            if self._use_efficient != 0:
+                from ..utils.efficient_modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
                 self._model = LayerWiseMiniCPMForCausalLM.from_pretrained(
                     model,
                     torch_dtype=torch.bfloat16,
                     trust_remote_code=True,
                 ).to(device)
+                self._model.efficient_type = self._use_efficient
                 self._model.efficient_t = 0.4
                 self._model.efficient_layers = [12]
             else:
-                from ..utils.efficient_modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
+                from ..utils.modeling_minicpm_reranker import LayerWiseMiniCPMForCausalLM
                 self._model = LayerWiseMiniCPMForCausalLM.from_pretrained(
                     model,
                     torch_dtype=torch.bfloat16,
@@ -307,7 +308,7 @@ class LLMRerank(BaseNodePostprocessor):
         N = len(nodes)
 
         for i in range(0, N, bsz):
-            if self._type == 1 and i == 0 and self._use_efficient == 1:
+            if self._type == 1 and i == 0 and self._use_efficient != 0:
                 self._model.judge = True
                 self._model.cut_layer = self._layer
             begin_idx, end_idx = i, min(i + bsz, N)

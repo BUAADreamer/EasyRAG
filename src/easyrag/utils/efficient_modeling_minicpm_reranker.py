@@ -24,6 +24,8 @@ import math
 import warnings
 from typing import List, Optional, Tuple, Union, Dict
 import time
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
@@ -1251,25 +1253,29 @@ class LayerWiseMiniCPMForCausalLM(MiniCPMPreTrainedModel):
 
         cutoff_layers = [max(cutoff_layers)]
 
+        def normal_shannon_entropy(p, labels_num):
+            entropy = torch.distributions.Categorical(probs=p).entropy()
+            normal = -torch.log(1.0 / labels_num)
+            return entropy / normal
+
         def judge_quit(
                 logits,
         ):
             scores = logits[:, -1].view(-1, )
             softmax_scores = F.softmax(scores, dim=0)  # 默认dim=0表示沿着第一个维度（即一维的情况）
-            # score_std = softmax_scores.std()
-            score_max = softmax_scores.max()
-            # score_min = softmax_scores.min()
-            if score_max >= self.efficient_t:
-                return True
-            ## 选择最大的k个softmax分数和
-            # top_k_indices = torch.topk(softmax_scores, k=self.efficient_k, dim=0).indices  # 获取最大的6个元素的索引
-            # top_k_softmax_scores = softmax_scores[top_k_indices]  # 使用索引获取元素
-            # top_k_sum = top_k_softmax_scores.sum()
-            # if top_k_sum >= self.efficient_t:
-            #     res = True
+            if self.efficient_type == 1:  # max select method
+                score_max = softmax_scores.max()
+                if score_max >= self.efficient_t:
+                    return True
+            else:  # entropy method
+                labels_num = softmax_scores.shape[0]
+                entropy = torch.distributions.Categorical(probs=softmax_scores).entropy()
+                normal = -np.log(1.0 / labels_num)
+                score_entropy = entropy / normal
+                if score_entropy >= self.efficient_t:
+                    return True
             return False
 
-        time_ls = []
         all_logits = ()
         logits = None
         for layer, hidden_states in self.model(
