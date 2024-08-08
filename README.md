@@ -26,7 +26,13 @@ cp submit_result.jsonl ../answer.jsonl
 uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-## 3. 代码结构
+## 4.WebUI
+
+```bash
+streamlit run webui.py
+```
+
+## 5. 代码结构
 
 仅对复赛可能用到的代码进行讲解
 
@@ -65,7 +71,7 @@ uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
 - Dockerfile # docker配置文件
 ```
 
-## 4. 可能的问题及解答
+## 6. 可能的问题及解答
 
 ### python:3.10.14-slim镜像如何获取？
 
