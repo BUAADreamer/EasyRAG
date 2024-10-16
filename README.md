@@ -108,4 +108,4 @@ Only the code that may be used in the semi-final is explained.
 
 ## Acknowledgement
 
-Thanks to the [CCF AIOps 2024 Challenge Organising Committee](https://competition.aiops-challenge.com/home/competition/1780211530478944282)
+Thanks to the [CCF AIOps 2024 Challenge Organising Committee](https://competition.aiops-challenge.com/home/competition/1780211530478944282), they provide high quality data and a good atmosphere.
