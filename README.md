@@ -1,90 +1,85 @@
-# EasyRAG
+# EasyRAG: Efficient Retrieval-Augmented Generation Framework for Automated Network Operations
 
-## 1. Docker运行
+[![license](https://img.shields.io/github/license/mashape/apistatus.svg?maxAge=2592000)](https://github.com/BUAADreamer/EasyRAG/blob/main/licence)
+[![arxiv badge](https://img.shields.io/badge/arxiv-2404.11317-red)](https://arxiv.org/abs/2410.10315)
+[![GitHub Repo stars](https://img.shields.io/github/stars/BUAADreamer/SPN4CIR?style=social)](https://github.com/BUAADreamer/EasyRAG/stargazers)
+
+## Overview
+
+This paper presents EasyRAG, a simple, lightweight, and efficient retrieval-augmented generation framework for automated network operations. Our framework has three advantages. The first is accurate question answering. We designed a straightforward RAG scheme based on (1) a specific data processing workflow (2) dual-route sparse retrieval for coarse ranking (3) LLM Reranker for reranking (4) LLM answer generation and optimization. This approach achieved first place in the GLM4 track in the preliminary round and second place in the GLM4 track in the semifinals. The second is simple deployment. Our method primarily consists of BM25 retrieval and BGE-reranker reranking, requiring no fine-tuning of any models, occupying minimal VRAM, easy to deploy, and highly scalable; we provide a flexible code library with various search and generation strategies, facilitating custom process implementation. The last one is efficient inference. We designed an efficient inference acceleration scheme for the entire coarse ranking, reranking, and generation process that significantly reduces the inference latency of RAG while maintaining a good level of accuracy; each acceleration scheme can be plug-and-play into any component of the RAG process, consistently enhancing the efficiency of the RAG system.
+
+## Run
+
+
+### 1. Docker
 
 ```bash
 chmod +x run.sh
 ./run.sh
 ```
 
-## 2. 直接运行
+### 2. Run Directly
 
 ```bash
 pip install -r requirements.txt
 cd src
 
-# 运行测试题目
+# run challenge questions
 python3 main.py 
 
-# 复制答案文件
+# copy answer file
 cp submit_result.jsonl ../answer.jsonl
 ```
 
-## 3. API
+### 3. API
 
 ```bash
 uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-## 4.WebUI
+### 4.WebUI
 
-需要先运行API
+You need to run the API first
 
 ```bash
 streamlit run webui.py
 ```
 
-## 5. 代码结构
+### 5. Project Structure
 
-仅对复赛可能用到的代码进行讲解
+Only the code that may be used in the semi-final is explained.
 
 ```yaml
 - src
     - custom
-        - splitter.py # 自定义块分割
-        - hierarchical.py # 分层分块
-        - transformation.py # 文件路径和标题抽取
-        - embeddings # 为GTE单独实现一个embedding类，方便自定义使用
+        - splitter.py # Custom Chunk Splitter
+        - hierarchical.py # hierarchical Chunk Splitter
+        - transformation.py # File path and title extraction
+        - embeddings # Implement a separate embedding class for the GTE
             - ...
-        - retrievers.py # 实现基于qdrant的密集检索器，中文BM25检索器，实现了rrf和简单合并的融合检索器
-        - rerankers.py # 单独为bge系列的reranker实现一些类，方便自定义使用
-        - template.py # QA提示词模板
+        - retrievers.py # Implementation of a qdrant-based dense retriever, Chinese BM25 retriever, implementation of a fusion retriever with rrf and simple merge
+        - rerankers.py # Implement some classes separately for the bge series of rerankers for easy custom use
+        - template.py # QA Prompt Template
     - pipeline
-        - ingestion.py # 数据处理流程：数据读入，元数据提取，文档分块，编码，元数据过滤器，向量数据库建立
-        - pipeline.py # EasyRAG流程类，包含对各种数据和模型的初始化、具体的RAG流程定义
-        - rag.py # rag的一些工具函数
-        - qa.py # 读入问题文件，保存答案
-    - utils # 适配hf的custom llm在国内使用，直接由对应模型的hf链接中的代码复制而来
+        - ingestion.py # Data processing flow: data reader, metadata extraction, document chunking, document encoding, metadata filters, vector database creation
+        - pipeline.py # EasyRAG Pipeline class, containing initialisation of various data and models, custom RAG Pipeline definitions
+        - rag.py # Some tool functions for rag
+        - qa.py # Read the question file and save the answer
+    - utils # The hf-adapted custom llm for the usage in China and is copied directly from the code in the hf link of the corresponding model.
         - ...
     - configs
-        - easyrag.yaml # 配置文件
+        - easyrag.yaml # configuration file
     - data
-        - nltk_data # nltk中的停用词表和分词器数据
-        - hit_stopwords.txt # hit中文停用词表
-        - imgmap_filtered.json # 由get_ocr_data.py处理而来
-        - question.jsonl # 复赛测试集
-    - main.py # 主函数，入口文件
-    - api.py # FashAPI服务
-    - preprocess_zedx.py # zedx数据预处理
-    - get_ocr_data.py # paddleocr+glm4v抽取图像内容
-    - submit.py # 初赛提交结果
-- requirements.txt # python依赖
-- run.sh # docker运行脚本
-- Dockerfile # docker配置文件
+        - nltk_data # stop word lists and tokenizer data in nltk
+        - hit_stopwords.txt # HIT Chinese Stop Word List
+        - imgmap_filtered.json # Processed by get_ocr_data.py
+        - question.jsonl # Semi-Final Test Set
+    - main.py # Main Functions, Entry Files
+    - api.py # FastAPI Service
+    - preprocess_zedx.py # zedx data preprocessing
+    - get_ocr_data.py # paddleocr+glm4v extracts image content
+    - submit.py # Submit Results to Challenge
+- requirements.txt # python requirements
+- run.sh # docker run script
+- Dockerfile # docker configuration file
 ```
-
-## 6. 可能的问题及解答
-
-### python:3.10.14-slim镜像如何获取？
-
-如果遇到从Docker Hub拉取镜像失败，则可以采取更改docker config代理设置的方法重新拉取镜像或者使用本地安装的方式安装python:3.10.14-slim的linux/amd64版本镜像，其中的 `python3-10-14.tar` 文件在同目录下提供。
-
-```bash
-docker load -i python3-10-14.tar
-```
-
-### 使用的魔搭模型链接为什么是自己上传的，而不是官方的？
-
-1. 我们前期一直使用hf下载到本地的版本，最后需要提交时考虑到国内评测不方便才转换到modelscope。我们**自己上传的模型没有经过任何微调**，**直接由hf最新版本下载而来，并上传到魔搭**，直接使用hf官方的模型效果是一致的。（注：buaadreamer是队长的魔搭用户名）
-2. bge-reranker-v2-minicpm-layerwise官方并没有在魔搭上传模型
-3. 综上，我们使用了自己上传的魔搭模型链接，用于复现时模型下载
