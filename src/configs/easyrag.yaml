@@ -30,8 +30,8 @@ r_use_efficient: 0 # 0-->不加速 1-->使用最大值选择方法加速 2-->使
 
 # 生成参数
 llm_keys: [
-  "4f3c198f8bcbfa81e2ef9fbea428d9d8.DGBE51vKXQP65ceE",
-  "5cc7a7b7edad616a8e8a02fe3073426a.B2LhU3ZIlhgkRzPM"
+  "your-keys",
+  "your-keys",
 ]
 llm_name: "glm-4"
 llm_embed_type: 3 # 最终的上下文文档编码参数
