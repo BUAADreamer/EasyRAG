@@ -21,6 +21,13 @@ This paper presents EasyRAG, a simple, lightweight, and efficient retrieval-augm
 
 ## Run
 
+### 0.Requirements
+
+Python3.10.14, 1*Nvidia A100 40G
+
+```shell
+pip install -r requirements.txt
+```
 
 ### 1. Docker
 
@@ -30,14 +37,10 @@ chmod +x run.sh
 ```
 
 ### 2. Run Directly
-
 ```bash
-pip install -r requirements.txt
 cd src
-
 # run challenge questions
 python3 main.py 
-
 # copy answer file
 cp submit_result.jsonl ../answer.jsonl
 ```
