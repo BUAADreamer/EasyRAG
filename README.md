@@ -45,6 +45,7 @@ cp submit_result.jsonl ../answer.jsonl
 ### 3. API
 
 ```bash
+cd src
 uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
@@ -53,6 +54,7 @@ uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
 You need to run the API first
 
 ```bash
+cd src
 streamlit run webui.py
 ```
 
