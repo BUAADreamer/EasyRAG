@@ -1,0 +1,41 @@
+cff-version: 1.2.0
+date-released: 2024-10
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Feng"
+  given-names: "Zhangchi"
+- family-names: "Kuang"
+  given-names: "Dongdong"
+- family-names: "Wang"
+  given-names: "Zhongyuan"
+- family-names: "Nie"
+  given-names: "Zhijie"
+- family-names: "Zheng"
+  given-names: "Yaowei"
+- family-names: "Zhang"
+  given-names: "Richong"
+
+title: "EasyRAG: Efficient Retrieval-Augmented Generation Framework for Automated Network Operations"
+url: "https://arxiv.org/abs/2410.10315"
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Feng"
+      given-names: "Zhangchi"
+    - family-names: "Kuang"
+      given-names: "Dongdong"
+    - family-names: "Wang"
+      given-names: "Zhongyuan"
+    - family-names: "Nie"
+      given-names: "Zhijie"
+    - family-names: "Zheng"
+      given-names: "Yaowei"
+    - family-names: "Zhang"
+      given-names: "Richong"
+  title: "EasyRAG: Efficient Retrieval-Augmented Generation Framework for Automated Network Operations"
+  journal: "CoRR"
+  volume: "abs/2410.10315"
+  year: 2024
+  url: "https://arxiv.org/abs/2410.10315"
+  eprinttype: "arXiv"
+  eprint: "2410.10315"
