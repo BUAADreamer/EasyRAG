@@ -1,8 +1,8 @@
 # EasyRAG: Efficient Retrieval-Augmented Generation Framework for Automated Network Operations
 
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg?maxAge=2592000)](https://github.com/BUAADreamer/EasyRAG/blob/main/licence)
-[![arxiv badge](https://img.shields.io/badge/arxiv-2404.11317-red)](https://arxiv.org/abs/2410.10315)
-[![GitHub Repo stars](https://img.shields.io/github/stars/BUAADreamer/SPN4CIR?style=social)](https://github.com/BUAADreamer/EasyRAG/stargazers)
+[![arxiv badge](https://img.shields.io/badge/arxiv-2410.10315-red)](https://arxiv.org/abs/2410.10315)
+[![GitHub Repo stars](https://img.shields.io/github/stars/BUAADreamer/EasyRAG?style=social)](https://github.com/BUAADreamer/EasyRAG/stargazers)
 
 ## Overview
 
