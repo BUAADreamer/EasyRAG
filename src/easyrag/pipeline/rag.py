@@ -47,26 +47,3 @@ def deduplicate(contents):
             contentmap[content] = 1
             new_contents.append(content)
     return new_contents
-
-
-def analysis_path_res(query, node_with_scores):
-    num = len(node_with_scores)
-    # if num < 192 or query == 'VNF弹性分几类？':
-    #     print(query, num)
-    # else:
-    #     return
-    # # if len(node_with_scores) > 20 and query != 'VNF弹性分几类？':
-    # #     return
-    # if query not in ['VNF弹性分几类？']:
-    #     return
-    pathmap = dict()
-    for node in node_with_scores[:10]:
-        know_path = node.metadata['file_path']
-        print(know_path)
-        if know_path not in pathmap:
-            pathmap[know_path] = 1
-        else:
-            pathmap[know_path] += 1
-    # print(query)
-    # print(len(pathmap.keys()))
-    # print(pathmap)
