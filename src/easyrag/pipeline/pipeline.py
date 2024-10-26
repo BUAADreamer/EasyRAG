@@ -180,7 +180,7 @@ class EasyRAGPipeline:
         )
 
         f_topk_3 = config['f_topk_3']
-        if f_topk_3!=0:
+        if f_topk_3 != 0:
             self.path_retriever = BM25Retriever.from_defaults(
                 nodes=self.nodes,
                 tokenizer=self.sparse_tk,
