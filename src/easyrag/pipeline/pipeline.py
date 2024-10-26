@@ -180,14 +180,17 @@ class EasyRAGPipeline:
         )
 
         f_topk_3 = config['f_topk_3']
-        self.path_retriever = BM25Retriever.from_defaults(
-            nodes=self.nodes,
-            tokenizer=self.sparse_tk,
-            similarity_top_k=f_topk_3,
-            stopwords=self.stp_words,
-            embed_type=5,  # 4-->file_path 5-->know_path
-            bm25_type=bm25_type,
-        )
+        if f_topk_3!=0:
+            self.path_retriever = BM25Retriever.from_defaults(
+                nodes=self.nodes,
+                tokenizer=self.sparse_tk,
+                similarity_top_k=f_topk_3,
+                stopwords=self.stp_words,
+                embed_type=5,  # 4-->file_path 5-->know_path
+                bm25_type=bm25_type,
+            )
+        else:
+            self.path_retriever = None
 
         if split_type == 1:
             self.sparse_retriever = AutoMergingRetriever(
@@ -280,8 +283,8 @@ class EasyRAGPipeline:
 
     def build_filters(self, query):
         filters = None
-        filter_dict = dict()
-        if "document" in query:
+        filter_dict = None
+        if "document" in query and query["document"] != "":
             dir = query['document']
             filters = build_qdrant_filters(
                 dir=dir
@@ -330,7 +333,10 @@ class EasyRAGPipeline:
     ):
         query_bundle = self.build_query_bundle(query_str)
         node_with_scores = await self.sparse_retriever.aretrieve(query_bundle)
-        node_with_scores_path = await self.path_retriever.aretrieve(query_bundle)
+        if self.path_retriever is not None:
+            node_with_scores_path = await self.path_retriever.aretrieve(query_bundle)
+        else:
+            node_with_scores_path = []
         node_with_scores = HybridRetriever.fusion([
             node_with_scores,
             node_with_scores_path,

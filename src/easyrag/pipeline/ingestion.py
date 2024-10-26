@@ -52,19 +52,27 @@ def get_node_content(node: NodeWithScore, embed_type=0, nodes: list[TextNode] = 
             if flag:
                 idx = cur_text.index("---")
                 text = cur_text[:idx].strip().split("\n")[-1] + cur_text[idx:]
-            print(flag, cnt)
+            # print(flag, cnt)
     if embed_type == 1:
-        text = '###\n' + node.metadata['file_path'] + "\n\n" + text
+        if 'file_path' in node.metadata:
+            text = '###\n' + node.metadata['file_path'] + "\n\n" + text
     elif embed_type == 2:
-        text = '###\n' + node.metadata['know_path'] + "\n\n" + text
+        if 'know_path' in node.metadata:
+            text = '###\n' + node.metadata['know_path'] + "\n\n" + text
     elif embed_type == 3 or embed_type == 6:
         if "imgobjs" in node.metadata and len(node.metadata['imgobjs']) > 0:
             for imgobj in node.metadata['imgobjs']:
                 text = text.replace(f"{imgobj['cap']} {imgobj['title']}\n", f"{imgobj['cap']}.{imgobj['title']}:{imgobj['content']}\n")
     elif embed_type == 4:
-        return node.metadata['file_path']
+        if 'file_path' in node.metadata:
+            text = node.metadata['file_path']
+        else:
+            text = ""
     elif embed_type == 5:
-        return node.metadata['know_path']
+        if 'know_path' in node.metadata:
+            text = node.metadata['know_path']
+        else:
+            text = ""
     return text
 
 
