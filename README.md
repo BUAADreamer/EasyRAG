@@ -35,7 +35,6 @@ bash scripts/process.sh # process zedx data
 
 ```
 
-
 ## Reproduce
 
 ### 1. Run Directly
