@@ -1,7 +1,7 @@
 mkdir -p data
 
 echo "download official data..."
-#git clone https://www.modelscope.cn/datasets/issaccv/aiops2024-challenge-dataset.git data
+git clone https://www.modelscope.cn/datasets/issaccv/aiops2024-challenge-dataset.git data
 cd data
 mkdir format_data_with_img
 cp ../src/data/imgmap_filtered.json format_data_with_img/
