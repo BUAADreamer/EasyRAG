@@ -30,6 +30,7 @@ You need to change `llm_keys` in `src/easyrag.yaml` to your GLM keys.
 
 ```shell
 pip install -r requirements.txt
+git lfs install
 bash scripts/download.sh # download models
 bash scripts/process.sh # process zedx data
 

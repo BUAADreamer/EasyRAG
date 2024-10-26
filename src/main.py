@@ -1,8 +1,6 @@
 import json
 import os
 
-os.environ['NLTK_DATA'] = './data/nltk_data/'
-
 from easyrag.pipeline.pipeline import EasyRAGPipeline
 from submit import submit
 import fire

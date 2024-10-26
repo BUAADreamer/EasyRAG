@@ -1,7 +1,7 @@
 import os
+os.environ['NLTK_DATA'] = './data/nltk_data/'
 import random
 import asyncio
-
 import nest_asyncio
 import torch
 from llama_index.core.base.llms.types import CompletionResponse
