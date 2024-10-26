@@ -7,7 +7,10 @@
 ## Table of Contents
 
 - [Overview](#Overview)
-- [Run](#Run)
+- [Requirements](#Requirements)
+- [Reproduce](#Reproduce)
+- [Usage](#Usage)
+- [Project Structure](#Project-Structure)
 - [Citation](#Citation)
 - [Acknowledgement](#Acknowledgement)
 
@@ -19,24 +22,24 @@ This paper presents EasyRAG, a simple, lightweight, and efficient retrieval-augm
     <img src="assets/overview.png" width="95%" height="auto" />
 </div>
 
-## Run
+## Requirements
 
-### 0.Requirements
+EasyRAG needs Python3.10.14 and at least 1 GPU with 16GB. 
 
-Python3.10.14, 1*Nvidia A100 40G
+You need to change `llm_keys` in `src/easyrag.yaml` to your GLM keys.
 
 ```shell
 pip install -r requirements.txt
+bash scripts/download.sh # download models
+bash scripts/process.sh # process zedx data
+
 ```
 
-### 1. Docker
 
-```bash
-chmod +x run.sh
-./run.sh
-```
+## Reproduce
 
-### 2. Run Directly
+### 1. Run Directly
+
 ```bash
 cd src
 # run challenge questions
@@ -45,14 +48,23 @@ python3 main.py
 cp submit_result.jsonl ../answer.jsonl
 ```
 
-### 3. API
+### 2. Run with Docker
+
+```bash
+chmod +x scripts/run.sh
+./scripts/run.sh
+```
+
+## Usage
+
+### 1. API
 
 ```bash
 cd src
 uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-### 4.WebUI
+### 2.WebUI
 
 You need to run the API first
 
@@ -61,7 +73,7 @@ cd src
 streamlit run webui.py
 ```
 
-### 5. Project Structure
+## Project Structure
 
 Only the code that may be used in the semi-final is explained.
 

@@ -8,7 +8,7 @@ test-*.py
 *.py[cod]
 *$py.class
 .idea/
-scripts/
+
 # C extensions
 *.so
 temp/
@@ -202,3 +202,5 @@ demo/data/
 inter/
 
 private-*
+
+data/
