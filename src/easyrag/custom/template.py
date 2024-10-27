@@ -41,3 +41,32 @@ SUMMARY_EXTRACT_TEMPLATE = """\
 
     总结：\
     """
+
+HYDE_PROMPT_ORIGIN = """\
+    Please write a passage to answer the question
+    Try to include as many key details as possible
+    {context_str}
+    Passage:\
+    """
+
+HYDE_PROMPT_MODIFIED_V1 = """\
+    你是系统运维专家，现在请你结合通信和系统运维的相关知识回答下列问题，
+    请尽量包含更多你所知道的的关键细节。请详细分析可能的原因，提出有效的诊断步骤和解决方案。
+    {context_str}
+    请尽可能简洁的回答:\
+    """
+
+HYDE_PROMPT_MODIFIED_V2 = """\
+    你是系统运维专家，现在请你结合通信和系统运维的相关知识回答下列问题，
+    请详细分析可能的原因，返回有用的内容。
+    {context_str}
+    最终的回答请尽可能的精简:\
+    """
+
+HYDE_PROMPT_MODIFIED_MERGING = """\
+    你是系统运维专家，现在请你结合通信和系统运维的相关知识回答下列问题，
+    现在有给定一个问题和可能相关的上下文信息，以及我们推荐的一个参考资料，你需要将上述的问题和相关信息总结为一个文档，
+    要求：这个文档要包含尽可能多的关键细节，要求尽可能详细，但是不要复述上下文信息。
+    问题：{query_str}, 参考上下文：{context_str}
+    请按照要求作答：\
+    """

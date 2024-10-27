@@ -4,9 +4,10 @@ import random
 import asyncio
 import nest_asyncio
 import torch
-from llama_index.core.base.llms.types import CompletionResponse
 from llama_index.core.retrievers import AutoMergingRetriever
 from llama_index.core.storage.docstore import SimpleDocumentStore
+from llama_index.core.indices.query.query_transform import HyDEQueryTransform
+from llama_index.core.query_engine import TransformQueryEngine
 from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -64,6 +65,7 @@ class EasyRAGPipeline:
         self.r_topk_1 = config['r_topk_1']
         self.rerank_fusion_type = config['rerank_fusion_type']
         self.ans_refine_type = config['ans_refine_type']
+        self.hyde = config['hyde']
         # 初始化 LLM
         llm_key = random.choice(config["llm_keys"])
         llm_name = config['llm_name']
@@ -75,6 +77,15 @@ class EasyRAGPipeline:
         )
         self.qa_template = self.build_prompt_template(QA_TEMPLATE)
         self.merge_template = self.build_prompt_template(MERGE_TEMPLATE)
+
+        # 创建hydeEngine
+        if self.hyde:
+            from ..custom.template import HYDE_PROMPT_MODIFIED_V2, HYDE_PROMPT_ORIGIN
+            from llama_index.core import PromptTemplate
+            hyde_prompt = PromptTemplate(HYDE_PROMPT_MODIFIED_V2)
+            self.hyde_transform = HyDEQueryTransform(
+                llm=self.llm, hyde_prompt=hyde_prompt, include_original=True)
+
         # 初始化Embedding模型
         retrieval_type = config['retrieval_type']
         embedding_name = config['embedding_name']
@@ -308,6 +319,9 @@ class EasyRAGPipeline:
         "query":"问题" #必填
         "document": "所属路径" #用于过滤文档，可选
         '''
+        if self.hyde:
+            hyde_query = self.hyde_transform(query["query"])
+            query["query"] = query["query"] + hyde_query.custom_embedding_strs[0]
         self.filters, self.filter_dict = self.build_filters(query)
         if self.rerank_fusion_type == 0:
             self.retriever.filters = self.filters
