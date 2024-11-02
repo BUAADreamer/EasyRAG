@@ -57,3 +57,7 @@ qdrant_url: "http://localhost:6333"
 # 上下文压缩参数
 compress_method: "" # bm25_extract llmlingua longllmlingua
 compress_rate: 0.5
+
+# 虚假文档参数
+hyde: false
+hyde_merging: false
