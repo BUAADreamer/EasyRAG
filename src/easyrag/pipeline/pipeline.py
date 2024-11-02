@@ -88,9 +88,9 @@ class EasyRAGPipeline:
                 llm=self.llm, hyde_prompt=hyde_prompt, include_original=True)
         if self.hyde_merging:
             from ..custom.template import HYDE_PROMPT_MODIFIED_MERGING
-            hyde_prompt = PromptTemplate(HYDE_PROMPT_MODIFIED_MERGING)
+            hyde_merging_prompt = PromptTemplate(HYDE_PROMPT_MODIFIED_MERGING)
             self.hyde_transform_merging = HyDEQueryTransform(
-                llm=self.llm, hyde_prompt=hyde_prompt, include_original=True)
+                llm=self.llm, hyde_prompt=hyde_merging_prompt, include_original=True)
 
         # 初始化Embedding模型
         retrieval_type = config['retrieval_type']
@@ -362,8 +362,11 @@ class EasyRAGPipeline:
             node_with_scores_path,
         ])
         if self.reranker:
-            if self.hyde_merging:
-                pass
+            if self.hyde_merging and self.hyde:
+                hyde_query_top1_chunk =  f'问题：{query_str}, 参考上下文：{self.get_node_content(node_with_scores[0])}'
+                hyde_merging_prompt = self.hyde_transform_merging(hyde_query_top1_chunk)
+                query_bundle = self.build_query_bundle(hyde_merging_prompt.custom_embedding_strs[0])
+
             node_with_scores = self.reranker.postprocess_nodes(node_with_scores, query_bundle)
         contents = [self.get_node_content(node=node) for node in node_with_scores]
         context_str = "\n\n".join(
