@@ -327,13 +327,14 @@ class EasyRAGPipeline:
         '''
         if self.hyde:
             hyde_query = self.hyde_transform(query["query"])
-            query["query"] = query["query"] + hyde_query.custom_embedding_strs[0]
+            query["hyde_query"] = hyde_query.custom_embedding_strs[0]
         self.filters, self.filter_dict = self.build_filters(query)
         if self.rerank_fusion_type == 0:
             self.retriever.filters = self.filters
             self.retriever.filter_dict = self.filter_dict
             res = await self.generation_with_knowledge_retrieval(
                 query_str=query["query"],
+                hyde_query=query.get("hyde_query", "")
             )
         else:
             self.dense_retriever.filters = self.filters
@@ -350,6 +351,7 @@ class EasyRAGPipeline:
     async def generation_with_knowledge_retrieval(
             self,
             query_str: str,
+            hyde_query: str=""
     ):
         query_bundle = self.build_query_bundle(query_str)
         node_with_scores = await self.sparse_retriever.aretrieve(query_bundle)
@@ -363,9 +365,10 @@ class EasyRAGPipeline:
         ])
         if self.reranker:
             if self.hyde_merging and self.hyde:
-                hyde_query_top1_chunk =  f'问题：{query_str}, 参考上下文：{self.get_node_content(node_with_scores[0])}'
-                hyde_merging_prompt = self.hyde_transform_merging(hyde_query_top1_chunk)
-                query_bundle = self.build_query_bundle(hyde_merging_prompt.custom_embedding_strs[0])
+                hyde_query_top1_chunk = f'问题：{query_str},\n 可能有用的提示文档:{hyde_query},\n ' \
+                                        f'检索得到的相关上下文：{self.get_node_content(node_with_scores[0])}'
+                hyde_merging_query_bundle = self.hyde_transform_merging(hyde_query_top1_chunk)
+                query_bundle = self.build_query_bundle(query_str + "\n" + hyde_merging_query_bundle.custom_embedding_strs[0])
 
             node_with_scores = self.reranker.postprocess_nodes(node_with_scores, query_bundle)
         contents = [self.get_node_content(node=node) for node in node_with_scores]
