@@ -66,6 +66,7 @@ class EasyRAGPipeline:
         self.rerank_fusion_type = config['rerank_fusion_type']
         self.ans_refine_type = config['ans_refine_type']
         self.hyde = config['hyde']
+        self.hyde_merging = config['hyde_merging']
         # 初始化 LLM
         llm_key = random.choice(config["llm_keys"])
         llm_name = config['llm_name']
@@ -80,10 +81,15 @@ class EasyRAGPipeline:
 
         # 创建hydeEngine
         if self.hyde:
-            from ..custom.template import HYDE_PROMPT_MODIFIED_V2, HYDE_PROMPT_ORIGIN
+            from ..custom.template import HYDE_PROMPT_MODIFIED_V2
             from llama_index.core import PromptTemplate
             hyde_prompt = PromptTemplate(HYDE_PROMPT_MODIFIED_V2)
             self.hyde_transform = HyDEQueryTransform(
+                llm=self.llm, hyde_prompt=hyde_prompt, include_original=True)
+        if self.hyde_merging:
+            from ..custom.template import HYDE_PROMPT_MODIFIED_MERGING
+            hyde_prompt = PromptTemplate(HYDE_PROMPT_MODIFIED_MERGING)
+            self.hyde_transform_merging = HyDEQueryTransform(
                 llm=self.llm, hyde_prompt=hyde_prompt, include_original=True)
 
         # 初始化Embedding模型
@@ -356,6 +362,8 @@ class EasyRAGPipeline:
             node_with_scores_path,
         ])
         if self.reranker:
+            if self.hyde_merging:
+                pass
             node_with_scores = self.reranker.postprocess_nodes(node_with_scores, query_bundle)
         contents = [self.get_node_content(node=node) for node in node_with_scores]
         context_str = "\n\n".join(
