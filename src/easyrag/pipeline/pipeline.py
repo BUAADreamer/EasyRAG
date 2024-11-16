@@ -4,9 +4,10 @@ import random
 import asyncio
 import nest_asyncio
 import torch
-from llama_index.core.base.llms.types import CompletionResponse
 from llama_index.core.retrievers import AutoMergingRetriever
 from llama_index.core.storage.docstore import SimpleDocumentStore
+from llama_index.core.indices.query.query_transform import HyDEQueryTransform
+from llama_index.core.query_engine import TransformQueryEngine
 from llama_index.legacy.llms import OpenAILike as OpenAI
 from qdrant_client import models
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -64,6 +65,8 @@ class EasyRAGPipeline:
         self.r_topk_1 = config['r_topk_1']
         self.rerank_fusion_type = config['rerank_fusion_type']
         self.ans_refine_type = config['ans_refine_type']
+        self.hyde = config['hyde']
+        self.hyde_merging = config['hyde_merging']
         # 初始化 LLM
         llm_key = random.choice(config["llm_keys"])
         llm_name = config['llm_name']
@@ -75,6 +78,20 @@ class EasyRAGPipeline:
         )
         self.qa_template = self.build_prompt_template(QA_TEMPLATE)
         self.merge_template = self.build_prompt_template(MERGE_TEMPLATE)
+
+        # 创建hydeEngine
+        if self.hyde:
+            from ..custom.template import HYDE_PROMPT_MODIFIED_V2
+            from llama_index.core import PromptTemplate
+            hyde_prompt = PromptTemplate(HYDE_PROMPT_MODIFIED_V2)
+            self.hyde_transform = HyDEQueryTransform(
+                llm=self.llm, hyde_prompt=hyde_prompt, include_original=True)
+        if self.hyde_merging:
+            from ..custom.template import HYDE_PROMPT_MODIFIED_MERGING
+            hyde_merging_prompt = PromptTemplate(HYDE_PROMPT_MODIFIED_MERGING)
+            self.hyde_transform_merging = HyDEQueryTransform(
+                llm=self.llm, hyde_prompt=hyde_merging_prompt, include_original=True)
+
         # 初始化Embedding模型
         retrieval_type = config['retrieval_type']
         embedding_name = config['embedding_name']
@@ -180,7 +197,7 @@ class EasyRAGPipeline:
         )
 
         f_topk_3 = config['f_topk_3']
-        if f_topk_3!=0:
+        if f_topk_3 != 0:
             self.path_retriever = BM25Retriever.from_defaults(
                 nodes=self.nodes,
                 tokenizer=self.sparse_tk,
@@ -308,12 +325,16 @@ class EasyRAGPipeline:
         "query":"问题" #必填
         "document": "所属路径" #用于过滤文档，可选
         '''
+        if self.hyde:
+            hyde_query = self.hyde_transform(query["query"])
+            query["hyde_query"] = hyde_query.custom_embedding_strs[0]
         self.filters, self.filter_dict = self.build_filters(query)
         if self.rerank_fusion_type == 0:
             self.retriever.filters = self.filters
             self.retriever.filter_dict = self.filter_dict
             res = await self.generation_with_knowledge_retrieval(
                 query_str=query["query"],
+                hyde_query=query.get("hyde_query", "")
             )
         else:
             self.dense_retriever.filters = self.filters
@@ -330,8 +351,9 @@ class EasyRAGPipeline:
     async def generation_with_knowledge_retrieval(
             self,
             query_str: str,
+            hyde_query: str=""
     ):
-        query_bundle = self.build_query_bundle(query_str)
+        query_bundle = self.build_query_bundle(query_str+hyde_query)
         node_with_scores = await self.sparse_retriever.aretrieve(query_bundle)
         if self.path_retriever is not None:
             node_with_scores_path = await self.path_retriever.aretrieve(query_bundle)
@@ -342,6 +364,12 @@ class EasyRAGPipeline:
             node_with_scores_path,
         ])
         if self.reranker:
+            if self.hyde_merging and self.hyde:
+                hyde_query_top1_chunk = f'问题：{query_str},\n 可能有用的提示文档:{hyde_query},\n ' \
+                                        f'检索得到的相关上下文：{self.get_node_content(node_with_scores[0])}'
+                hyde_merging_query_bundle = self.hyde_transform_merging(hyde_query_top1_chunk)
+                query_bundle = self.build_query_bundle(query_str + "\n" + hyde_merging_query_bundle.custom_embedding_strs[0])
+
             node_with_scores = self.reranker.postprocess_nodes(node_with_scores, query_bundle)
         contents = [self.get_node_content(node=node) for node in node_with_scores]
         context_str = "\n\n".join(
